@@ -10,9 +10,16 @@ from scipy.integrate import odeint
 from shapely.geometry import LineString, Polygon
 
 # TODO
-import sys
-sys.path.insert(1, 'C:\\Users\\anejs\\Documents\\studij\\3. letnik\\DIPL\\Code\\Utils')
-from constants import PUSH_CART_RIGHT, PUSH_CART_LEFT, PUSH_POLE_RIGHT, PUSH_POLE_LEFT, STOP_CART, STOP_POLE
+# import sys
+# sys.path.insert(1, 'C:\\Users\\anejs\\Documents\\studij\\3. letnik\\DIPL\\Code\\Utils')
+# from constants import PUSH_CART_RIGHT, PUSH_CART_LEFT, PUSH_POLE_RIGHT, PUSH_POLE_LEFT, STOP_CART, STOP_POLE
+
+PUSH_CART_RIGHT = 0
+PUSH_CART_LEFT = 1
+PUSH_POLE_RIGHT = 2
+PUSH_POLE_LEFT = 3
+STOP_CART = 4
+STOP_POLE = 5
 
 
 class CartPoleObstacleEnv(gym.Env):
