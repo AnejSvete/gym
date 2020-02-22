@@ -99,10 +99,10 @@ class CartPoleObstacleEnv(gym.Env):
         self.times_at_goal = 0
 
     def reset(self):
-        # self.state = self.np_random.uniform(low=(-3 * pi / 2, -0.05, -0.05, -0.05),
-        #                                     high=(-pi, 0.05, 0.05, 0.05),
-        #                                     size=(4,))
-        self.state = np.zeros(shape=(4,))
+        self.state = self.np_random.uniform(low=(-3 * pi / 2, -0.05, -0.05, -0.05),
+                                            high=(-pi, 0.05, 0.05, 0.05),
+                                            size=(4,))
+        # self.state = np.zeros(shape=(4,))
         return np.array(self.state)
 
     def seed(self, seed=None):
