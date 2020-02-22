@@ -9,6 +9,11 @@ from scipy.integrate import odeint
 
 from shapely.geometry import LineString, Polygon
 
+# TODO
+import sys
+sys.path.insert(1, 'C:\\Users\\anejs\\Documents\\studij\\3. letnik\\DIPL\\Code\\Utils')
+from constants import PUSH_CART_RIGHT, PUSH_CART_LEFT, PUSH_POLE_RIGHT, PUSH_POLE_LEFT, STOP_CART, STOP_POLE
+
 
 class CartPoleObstacleEnv(gym.Env):
     metadata = {
@@ -25,12 +30,14 @@ class CartPoleObstacleEnv(gym.Env):
         self.total_mass = (self.mass_pole + self.mass_cart)
         self.length = 1.0  # actually half the pole's length
         self.pole_mass_length = (self.mass_pole * self.length)
-        self.force_mag = 50.0
+        self.force_mag = 100.0
         self.tau = 0.02  # seconds between state updates
 
-        self.de_solver = 'euler'
+        self.de_solver = 'scipy'
 
-        self.theta_min, self.theta_max = -pi / 4, pi / 4
+        # self.theta_min, self.theta_max = -pi / 30, pi / 30
+        # self.theta_min, self.theta_max = -pi / 15, pi / 15
+        self.theta_min, self.theta_max = -pi / 18, pi / 18
         self.x_min, self.x_max = -self.world_width / 2, self.world_width / 2
 
         low = np.array([self.x_min * 2, -np.finfo(np.float32).max, self.theta_min * 2, -np.finfo(np.float32).max])
@@ -72,24 +79,44 @@ class CartPoleObstacleEnv(gym.Env):
         self.pole_length = self.pole_length_pixels / self.scale
 
         self.goal_position = 3 / 2 * pi
+        # self.goal_position = pi
 
         self.intersection_polygon = None
 
         self.seed()
         self.viewer = None
-        self.previous_state, self.state = None, None
+        self.state = None
 
+        self.goal_margin = 1 / 12
+        self.goal_stable_duration = 5
         self.times_at_goal = 0
 
     def reset(self):
-        self.state = self.np_random.uniform(low=(-3 * pi / 2, -0.05, -0.05, -0.05),
-                                            high=(-pi, 0.05, 0.05, 0.05),
-                                            size=(4,))
+        # self.state = self.np_random.uniform(low=(-3 * pi / 2, -0.05, -0.05, -0.05),
+        #                                     high=(-pi, 0.05, 0.05, 0.05),
+        #                                     size=(4,))
+        self.state = np.zeros(shape=(4,))
         return np.array(self.state)
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
+
+    def manual_control(self, cmd):
+        print(f'detecting command {cmd}')
+        s, s_dot, theta, theta_dot = self.state
+        if cmd == STOP_CART:
+            self.state = np.array([s, 0, theta, theta_dot])
+        elif cmd == PUSH_CART_RIGHT:
+            self.state = self.new_state(action=-1)
+        elif cmd == PUSH_CART_LEFT:
+            self.state = self.new_state(action=-2)
+        elif cmd == STOP_POLE:
+            self.state = np.array([s, s_dot, theta, 0])
+        elif cmd == PUSH_POLE_RIGHT:
+            self.state = np.array([s, s_dot, theta, theta_dot + 0.25])
+        elif cmd == PUSH_POLE_LEFT:
+            self.state = np.array([s, s_dot, theta, theta_dot - 0.25])
 
     def x(self, s):
         return s
@@ -179,7 +206,13 @@ class CartPoleObstacleEnv(gym.Env):
 
         s, s_dot, theta, theta_dot = self.state
 
-        force = self.force_mag if action == 1 else -self.force_mag
+        if action in [-1, -2]:
+            force = 10 * self.force_mag if action == -1 else -10 * self.force_mag
+        else:
+            force = self.force_mag if action == 1 else -self.force_mag
+
+        # if action == -10:
+        #     force = 0
 
         if self.de_solver == 'euler':
 
@@ -198,22 +231,18 @@ class CartPoleObstacleEnv(gym.Env):
 
             def dtheta(z, t, force=0.0):
                 self.theta_dot, self.theta = z
-                print(self.theta_dot, self.theta)
                 return np.array((self.theta_dot_dot(force), z[0]))
 
-            force = self.force_mag * (int(action) - 1)
-
-            sample_length = 100
-            t = np.linspace(0, 1, num=sample_length)
+            t = np.linspace(0, 0.02, num=2)
 
             s_dot_tmp, s_tmp = odeint(ds, np.array([s_dot, s]), t, args=(force,)).T
             theta_dot_tmp, theta_tmp = odeint(dtheta, np.array([theta_dot, theta]), t, args=(force,)).T
 
-            s_dot = s_dot_tmp[int(sample_length / 50)]
-            s = s_tmp[int(sample_length / 50)]
+            s_dot = s_dot_tmp[-1]
+            s = s_tmp[-1]
 
-            theta_dot = theta_dot_tmp[int(sample_length / 50)]
-            theta = theta_tmp[int(sample_length / 50)]
+            theta_dot = theta_dot_tmp[-1]
+            theta = theta_tmp[-1]
 
         if theta < -pi:
             theta += 2 * pi
@@ -225,32 +254,37 @@ class CartPoleObstacleEnv(gym.Env):
     def reward(self, done):
         current_x, _, _, _ = self.state
         current_distance_from_goal = np.abs(current_x - self.goal_position)
-        # previous_x, _, _, _ = self.previous_state
-        # previous_distance_from_goal = np.abs(previous_x - self.goal_position_world)
-        # distance_difference = previous_distance_from_goal - current_distance_from_goal
-        # return np.exp2(distance_difference) if current_distance_from_goal < 0.1 * self.world_width else np.exp2(-current_distance_from_goal)
-        # return distance_difference if current_distance_from_goal < 0.1 * self.world_width else np.power(0.5, -current_distance_from_goal)
-        # return self.world_width / (current_distance_from_goal + 1)
-        return self.times_at_goal if current_distance_from_goal < 0.1 * self.world_width else -1 if done else 0.0
+        # return self.world_width / (current_distance_from_goal + 1) if not done else -1
+        if done:
+            # return 100 if self.times_at_goal >= self.goal_stable_duration else -100
+            return -10
+        else:
+            # return self.times_at_goal if current_distance_from_goal < self.goal_margin * self.world_width else 0.0
+            # return self.world_width / (current_distance_from_goal + 1)
+            # return np.exp(-current_distance_from_goal)
+            # return -1
+            return 1 if current_distance_from_goal < self.goal_margin * self.world_width else 0.0
 
     def step(self, action):
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
 
-        tmp_state = self.state
         x, x_dot, theta, theta_dot = self.new_state(action)
+        # x, x_dot, theta, theta_dot = self.new_state(-10)
         self.state = (x, x_dot, theta, theta_dot)
-        self.previous_state = tmp_state
 
         if self.pole_touches_obstacle():
             return np.array(self.state), -100, True, {}
 
         distance_from_goal = np.abs(x - self.goal_position)
 
-        done = not self.x_min <= x <= self.x_max or \
-               not self.theta_min <= theta <= self.theta_max or \
-               self.times_at_goal >= 50
+        # done = not self.x_min <= x <= self.x_max or \
+        #        not self.theta_min <= theta <= self.theta_max or \
+        #        self.times_at_goal >= self.goal_stable_duration
 
-        if distance_from_goal < 0.1 * self.world_width:
+        done = not self.x_min <= x <= self.x_max or \
+               not self.theta_min <= theta <= self.theta_max
+
+        if distance_from_goal < self.goal_margin * self.world_width:
             self.times_at_goal += 1
         else:
             self.times_at_goal = 0
@@ -318,6 +352,24 @@ class CartPoleObstacleEnv(gym.Env):
             flag = rendering.FilledPolygon([(flag_x, flag_top_y), (flag_x, flag_top_y - 50), (flag_x + 100, flag_top_y - 30)])
             flag.set_color(0.8, 0.8, 0)
             self.viewer.add_geom(flag)
+
+            # goal margin
+            stone_width, stone_height = 20, 40
+            stone_bottom_y = self.track_height_pixels
+            left_stone_x = (self.goal_position - self.world_width * self.goal_margin - self.x_min) * self.scale
+            right_stone_x = (self.goal_position + self.world_width * self.goal_margin - self.x_min) * self.scale
+            left_stone = rendering.FilledPolygon([(left_stone_x - stone_width / 2, stone_bottom_y),
+                                                  (left_stone_x + stone_width / 2, stone_bottom_y),
+                                                  (left_stone_x + stone_width / 2, stone_bottom_y + stone_height),
+                                                  (left_stone_x - stone_width / 2, stone_bottom_y + stone_height)])
+            right_stone = rendering.FilledPolygon([(right_stone_x - stone_width / 2, stone_bottom_y),
+                                                  (right_stone_x + stone_width / 2, stone_bottom_y),
+                                                  (right_stone_x + stone_width / 2, stone_bottom_y + stone_height),
+                                                  (right_stone_x - stone_width / 2, stone_bottom_y + stone_height)])
+            left_stone.set_color(255, 0, 0)
+            right_stone.set_color(255, 0, 0)
+            self.viewer.add_geom(left_stone)
+            self.viewer.add_geom(right_stone)
 
             # obstacle
             l, r, t, b = self.obstacle_coordinate_pixels
