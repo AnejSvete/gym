@@ -77,11 +77,11 @@ class CartPoleObstacleEnv(gym.Env):
         self.pole_bottom_y_pixels = self.cart_top_y_pixels
         self.pole_bottom_y = self.pole_bottom_y_pixels / self.scale
 
-        self.obstacle_width_pixels, self.obstacle_height_pixels = self.screen_width_pixels / 5, self.screen_height_pixels / 5
+        self.obstacle_width_pixels, self.obstacle_height_pixels = 20, 0.535 * self.screen_height_pixels
         self.obstacle_coordinate_pixels = [self.screen_width_pixels / 2 - self.obstacle_width_pixels / 2,
                                            self.screen_width_pixels / 2 + self.obstacle_width_pixels / 2,
-                                           self.cart_top_y_pixels + self.pole_length_pixels + self.obstacle_height_pixels / 2 + 150,
-                                           self.cart_top_y_pixels + self.pole_length_pixels - self.obstacle_height_pixels / 2 + 150]
+                                           self.screen_height_pixels,
+                                           self.screen_height_pixels - self.obstacle_height_pixels]
 
         self.pole_length = self.pole_length_pixels / self.scale
 
@@ -110,7 +110,6 @@ class CartPoleObstacleEnv(gym.Env):
         return [seed]
 
     def manual_control(self, cmd):
-        print(f'detecting command {cmd}')
         s, s_dot, theta, theta_dot = self.state
         if cmd == STOP_CART:
             self.state = np.array([s, 0, theta, theta_dot])
