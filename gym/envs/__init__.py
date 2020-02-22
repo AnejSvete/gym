@@ -67,15 +67,15 @@ register(
 register(
     id='CartPole-v2',
     entry_point='gym.envs.classic_control:CartPoleObstacleEnv',
-    max_episode_steps=500,
-    reward_threshold=475.0,
+    max_episode_steps=1000,
+    reward_threshold=950.0,
 )
 
 register(
     id='CartPole-v3',
     entry_point='gym.envs.classic_control:CartPoleMountainEnv',
-    max_episode_steps=500,
-    reward_threshold=475.0,
+    max_episode_steps=1000,
+    reward_threshold=950.0,
 )
 
 register(

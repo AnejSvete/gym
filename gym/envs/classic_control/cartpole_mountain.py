@@ -25,18 +25,19 @@ class CartPoleMountainEnv(gym.Env):
         self.total_mass = (self.mass_pole + self.mass_cart)
         self.length = 1.0  # actually half the pole's length
         self.pole_mass_length = (self.mass_pole * self.length)
-        self.force_mag = 50.0
+        self.force_mag = 100.0
         self.tau = 0.02  # seconds between state updates
 
-        self.de_solver = 'euler'
+        self.de_solver = 'scipy'
 
-        self.theta_min, self.theta_max = -pi / 4, pi / 4
+        self.theta_min, self.theta_max = -pi / 30, pi / 30
         self.x_min, self.x_max = -self.world_width / 2, self.world_width / 2
 
         low = np.array([self.x_min * 2, -np.finfo(np.float32).max, self.theta_min * 2, -np.finfo(np.float32).max])
         high = np.array([self.x_max * 2, np.finfo(np.float32).max, self.theta_max * 2, np.finfo(np.float32).max])
 
-        self.action_space = spaces.Discrete(3)
+        self.action_space = spaces.Discrete(2)
+        # self.action_space = spaces.Discrete(3)
         self.observation_space = spaces.Box(low, high, dtype=np.float64)
 
         self.screen_width_pixels, self.screen_height_pixels = 1600, 800
@@ -55,7 +56,7 @@ class CartPoleMountainEnv(gym.Env):
         self.pole_length = 2 * self.length
         self.pole_length_pixels = self.scale * self.pole_length
 
-        self.height = 1.5
+        self.height = 1.0
         self.steepness = 0.75
         self.initial_height = 0.75 * pi
 
@@ -63,14 +64,17 @@ class CartPoleMountainEnv(gym.Env):
 
         self.seed()
         self.viewer = None
-        self.previous_state, self.state = None, None
+        self.state = None
 
+        self.goal_margin = 1 / 12
+        self.goal_stable_duration = 5
         self.times_at_goal = 0
 
     def reset(self):
-        self.state = self.np_random.uniform(low=(-3 * pi / 4, -0.05, -0.05, -0.05),
-                                            high=(-3 * pi / 4, 0.05, 0.05, 0.05),
-                                            size=(4,))
+        # self.state = self.np_random.uniform(low=(-pi / 16, -0.05, -0.05, -0.05),
+        #                                     high=(pi / 16, 0.05, 0.05, 0.05),
+        #                                     size=(4,))
+        self.state = np.zeros(shape=(4,))
         self.times_at_goal = 0
         return np.array(self.state)
 
@@ -135,7 +139,8 @@ class CartPoleMountainEnv(gym.Env):
 
         s, s_dot, theta, theta_dot = self.state
 
-        force = self.force_mag * (int(action) - 1)
+        # force = self.force_mag * (int(action) - 1)
+        force = self.force_mag if action == 1 else -self.force_mag
 
         if self.de_solver == 'euler':
 
@@ -154,22 +159,18 @@ class CartPoleMountainEnv(gym.Env):
 
             def dtheta(z, t, force=0.0):
                 self.theta_dot, self.theta = z
-                print(self.theta_dot, self.theta)
                 return np.array((self.theta_dot_dot(force), z[0]))
 
-            force = self.force_mag * (int(action) - 1)
-
-            sample_length = 100
-            t = np.linspace(0, 1, num=sample_length)
+            t = np.linspace(0, 0.02, num=2)
 
             s_dot_tmp, s_tmp = odeint(ds, np.array([s_dot, s]), t, args=(force,)).T
             theta_dot_tmp, theta_tmp = odeint(dtheta, np.array([theta_dot, theta]), t, args=(force,)).T
 
-            s_dot = s_dot_tmp[int(sample_length / 50)]
-            s = s_tmp[int(sample_length / 50)]
+            s_dot = s_dot_tmp[-1]
+            s = s_tmp[-1]
 
-            theta_dot = theta_dot_tmp[int(sample_length / 50)]
-            theta = theta_tmp[int(sample_length / 50)]
+            theta_dot = theta_dot_tmp[-1]
+            theta = theta_tmp[-1]
 
         if theta < -pi:
             theta += 2 * pi
@@ -179,12 +180,18 @@ class CartPoleMountainEnv(gym.Env):
         return np.array([s, s_dot, theta, theta_dot])
 
     def reward(self, done):
-        # current_s, _, _, _ = self.state
-        # current_x = self.x(current_s)
-        # current_distance_from_goal = np.abs(current_x - self.goal_position)
-        # return self.times_at_goal if current_distance_from_goal < 0.1 * self.world_width else -1 if done else 0.0
-        # return 1 / (current_distance_from_goal + 1)
-        return 1 if not done else 0
+        current_x, _, _, _ = self.state
+        current_distance_from_goal = np.abs(current_x - self.goal_position)
+        # return self.world_width / (current_distance_from_goal + 1) if not done else -1
+        if done:
+            # return 100 if self.times_at_goal >= self.goal_stable_duration else -100
+            return -10
+        else:
+            # return self.times_at_goal if current_distance_from_goal < self.goal_margin * self.world_width else 0.0
+            # return self.world_width / (current_distance_from_goal + 1)
+            # return np.exp(-current_distance_from_goal)
+            # return -1
+            return 1 if current_distance_from_goal < self.goal_margin * self.world_width else 0.0
 
     def step(self, action):
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
@@ -192,7 +199,6 @@ class CartPoleMountainEnv(gym.Env):
         tmp_state = self.state
         s, s_dot, theta, theta_dot = self.new_state(action)
         self.state = (s, s_dot, theta, theta_dot)
-        self.previous_state = tmp_state
 
         x, x_dot = self.x(s), self.x_dot(s)
 
