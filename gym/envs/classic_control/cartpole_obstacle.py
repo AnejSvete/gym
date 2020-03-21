@@ -29,7 +29,7 @@ class CartPoleObstacleEnv(gym.Env):
     }
 
     def __init__(self):
-        self.world_width, self.world_height = 4 * pi, 2 * pi
+        self.world_width, self.world_height = 8 * pi, 2 * pi
 
         self.gravity = -g
         self.mass_cart = 10.0
@@ -40,11 +40,11 @@ class CartPoleObstacleEnv(gym.Env):
         self.force_mag = 100.0
         self.tau = 0.02  # seconds between state updates
 
-        self.de_solver = 'scipy'
+        self.de_solver = 'euler'
 
         # self.theta_min, self.theta_max = -pi / 30, pi / 30
         # self.theta_min, self.theta_max = -pi / 15, pi / 15
-        self.theta_min, self.theta_max = -pi / 18, pi / 18
+        self.theta_min, self.theta_max = -pi / 3, pi / 3
         self.x_min, self.x_max = -self.world_width / 2, self.world_width / 2
 
         low = np.array([self.x_min * 2, -np.finfo(np.float32).max, self.theta_min * 2, -np.finfo(np.float32).max])
@@ -53,7 +53,7 @@ class CartPoleObstacleEnv(gym.Env):
         self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(low, high, dtype=np.float64)
 
-        self.screen_width_pixels, self.screen_height_pixels = 1600, 800
+        self.screen_width_pixels, self.screen_height_pixels = 2400, 600
         self.scale = self.screen_width_pixels / self.world_width
 
         self.cart_width_pixels = 100.0
@@ -77,16 +77,15 @@ class CartPoleObstacleEnv(gym.Env):
         self.pole_bottom_y_pixels = self.cart_top_y_pixels
         self.pole_bottom_y = self.pole_bottom_y_pixels / self.scale
 
-        self.obstacle_width_pixels, self.obstacle_height_pixels = 20, 0.535 * self.screen_height_pixels
-        self.obstacle_coordinate_pixels = [self.screen_width_pixels / 2 - self.obstacle_width_pixels / 2,
-                                           self.screen_width_pixels / 2 + self.obstacle_width_pixels / 2,
+        self.obstacle_width_pixels, self.obstacle_height_pixels = 20, 0.4 * self.screen_height_pixels
+        self.obstacle_coordinate_pixels = [self.screen_width_pixels / 3 - self.obstacle_width_pixels / 2,
+                                           self.screen_width_pixels / 3 + self.obstacle_width_pixels / 2,
                                            self.screen_height_pixels,
                                            self.screen_height_pixels - self.obstacle_height_pixels]
 
         self.pole_length = self.pole_length_pixels / self.scale
 
-        self.goal_position = 3 / 2 * pi
-        # self.goal_position = pi
+        self.goal_position = pi
 
         self.intersection_polygon = None
 
@@ -94,15 +93,21 @@ class CartPoleObstacleEnv(gym.Env):
         self.viewer = None
         self.state = None
 
-        self.goal_margin = 1 / 12
-        self.goal_stable_duration = 5
+        self.episode_step = 1
+        self.max_episode_steps = 500
+
+        self.goal_margin = 1 / 24
+        self.goal_stable_duration = 50
         self.times_at_goal = 0
 
     def reset(self):
-        self.state = self.np_random.uniform(low=(-3 * pi / 2, -0.05, -0.05, -0.05),
-                                            high=(-pi, 0.05, 0.05, 0.05),
-                                            size=(4,))
+        # self.state = self.np_random.uniform(low=(-5 * pi / 2, -0.05, -0.05, -0.05),
+        #                                     high=(-2 * pi, 0.05, 0.05, 0.05),
+        #                                     size=(4,))
+        self.state = np.array([-5 * pi / 2, 0.0, 0.0, 0.0])
         # self.state = np.zeros(shape=(4,))
+        self.times_at_goal = 0
+        self.episode_step = 1
         return np.array(self.state)
 
     def seed(self, seed=None):
@@ -145,37 +150,38 @@ class CartPoleObstacleEnv(gym.Env):
     def phi(self, t):
         return np.arctan(self.y_dot(t))
 
-    def s_dot_dot(self, force=0.0):
+    def s_dot_dot(self, F):
         s, s_dot, theta, theta_dot = self.state
-        return (-2 * force + self.y_dot(s) * (-(self.gravity * (self.mass_pole + 2 * self.mass_cart +
-                                                                self.mass_pole * np.cos(2*theta))) -
-                                              2 * self.pole_length * self.mass_pole * np.cos(theta) * theta_dot**2 +
-                                              s_dot**2 * (self.mass_pole * np.sin(2 * theta) * self.x_dot_dot(s) +
-                                                          (self.mass_pole + 2 * self.mass_cart +
-                                                           self.mass_pole * np.cos(2 * theta)) * self.y_dot_dot(s))) +
-                self.x_dot(s) * (-(self.gravity * self.mass_pole * np.sin(2*theta)) -
-                                 2 * self.pole_length * self.mass_pole * np.sin(theta) * theta_dot**2 +
-                                 s_dot**2 * ((self.mass_pole + 2 * self.mass_cart -
-                                              self.mass_pole * np.cos(2*theta)) * self.x_dot_dot(s) +
-                                             self.mass_pole * np.sin(2 * theta) * self.y_dot_dot(s)))) / \
-               ((-self.mass_pole - 2 * self.mass_cart + self.mass_pole * np.cos(2*theta)) * self.x_dot(s)**2 -
-                2 * self.mass_pole * np.sin(2 * theta) * self.x_dot(s) * self.y_dot(s) -
-                (self.mass_pole + 2*self.mass_cart + self.mass_pole*np.cos(2*theta))*self.y_dot(s)**2)
+        return (-2 * F +
+                self.y_dot(s) * (
+                        -(self.gravity * (self.mass_pole + 2 * self.mass_cart + self.mass_pole * np.cos(2 * theta)))
+                        - 2 * self.pole_length * self.mass_pole * np.cos(theta) * theta_dot ** 2
+                        + s_dot ** 2 * (self.mass_pole * np.sin(2 * theta) * self.x_dot_dot(s)
+                                        + (self.mass_pole + 2 * self.mass_cart
+                                           + self.mass_pole * np.cos(2 * theta)) * self.y_dot_dot(s)))
+                + self.x_dot(s) * (-(self.gravity * self.mass_pole * np.sin(2 * theta))
+                                   - 2 * self.pole_length * self.mass_pole * np.sin(theta) * theta_dot ** 2
+                                   + s_dot ** 2 * ((self.mass_pole + 2 * self.mass_cart
+                                                    - self.mass_pole * np.cos(2 * theta)) * self.x_dot_dot(s)
+                                                   + self.mass_pole * np.sin(2 * theta) * self.y_dot_dot(s)))) / \
+               ((-self.mass_pole - 2 * self.mass_cart + self.mass_pole * np.cos(2 * theta)) * self.x_dot(s) ** 2
+                - 2 * self.mass_pole * np.sin(2 * theta) * self.x_dot(s) * self.y_dot(s)
+                - (self.mass_pole + 2 * self.mass_cart + self.mass_pole * np.cos(2 * theta)) * self.y_dot(s) ** 2)
 
-    def theta_dot_dot(self, force=0.0):
+    def theta_dot_dot(self, F):
         s, s_dot, theta, theta_dot = self.state
-        return (force * (np.cos(theta) * self.x_dot(s) - np.sin(theta) * self.y_dot(s)) +
+        return (F * (np.cos(theta) * self.x_dot(s) - np.sin(theta) * self.y_dot(s)) +
                 (np.sin(theta) * self.x_dot(s) + np.cos(theta) * self.y_dot(s)) *
-                (self.y_dot(s) * (-(self.pole_length * self.mass_pole * np.sin(theta) * theta_dot**2) +
-                                  (self.mass_pole + self.mass_cart) * s_dot**2 * self.x_dot_dot(s)) +
-                 self.x_dot(s) * (self.pole_length * self.mass_pole * np.cos(theta) * theta_dot**2 +
-                                  (self.mass_pole + self.mass_cart) *
-                                  (self.gravity - s_dot**2 * self.y_dot_dot(s))))) / \
-               (self.pole_length * ((-self.mass_pole - self.mass_cart +
-                                     self.mass_pole * np.cos(theta)**2) * self.x_dot(s)**2 -
-                                    self.mass_pole * np.sin(2 * theta) * self.x_dot(s) * self.y_dot(s) -
-                                    ((self.mass_pole + 2 * self.mass_cart +
-                                      self.mass_pole * np.cos(2 * theta)) * self.y_dot(s)**2) / 2))
+                (self.y_dot(s) * (-(self.pole_length * self.mass_pole * np.sin(theta) * theta_dot ** 2)
+                                  + (self.mass_pole + self.mass_cart) * s_dot ** 2 * self.x_dot_dot(s))
+                 + self.x_dot(s) * (self.pole_length * self.mass_pole * np.cos(theta) * theta_dot ** 2
+                                    + (self.mass_pole + self.mass_cart) * (
+                                            self.gravity - s_dot ** 2 * self.y_dot_dot(s))))) / \
+               (self.pole_length * (
+                       (-self.mass_pole - self.mass_cart + self.mass_pole * np.cos(theta) ** 2) * self.x_dot(s) ** 2
+                       - self.mass_pole * np.sin(2 * theta) * self.x_dot(s) * self.y_dot(s)
+                       - ((self.mass_pole + 2 * self.mass_cart
+                           + self.mass_pole * np.cos(2 * theta)) * self.y_dot(s) ** 2) / 2.))
 
     def pole_top_coordinates(self, screen_coordinates=True):
         s, s_dot, theta, theta_dot = self.state
@@ -199,7 +205,8 @@ class CartPoleObstacleEnv(gym.Env):
 
         l, r, t, b = self.obstacle_coordinate_pixels
         obstacle = Polygon([(l, b), (l, t), (r, t), (r, b)])
-        pole = LineString([self.pole_bottom_coordinates(), self.pole_top_coordinates()]).buffer(self.pole_width_pixels / 2)
+        pole = LineString([self.pole_bottom_coordinates(),
+                           self.pole_top_coordinates()]).buffer(self.pole_width_pixels / 2)
         intersection = obstacle.intersection(pole)
 
         if intersection.is_empty:
@@ -257,47 +264,38 @@ class CartPoleObstacleEnv(gym.Env):
 
         return np.array([s, s_dot, theta, theta_dot])
 
-    def reward(self, done):
-        current_x, _, _, _ = self.state
-        current_distance_from_goal = np.abs(current_x - self.goal_position)
-        # return self.world_width / (current_distance_from_goal + 1) if not done else -1
-        if done:
-            # return 100 if self.times_at_goal >= self.goal_stable_duration else -100
-            return -10
-        else:
-            # return self.times_at_goal if current_distance_from_goal < self.goal_margin * self.world_width else 0.0
-            # return self.world_width / (current_distance_from_goal + 1)
-            # return np.exp(-current_distance_from_goal)
+    def reward(self, failed):
+        s, s_dot, theta, theta_dot = self.state
+        x = self.x(s)
+        if failed:
+            return - 2 * (self.max_episode_steps - self.episode_step)
             # return -1
-            return 1 if current_distance_from_goal < self.goal_margin * self.world_width else 0.0
+        else:
+            return 0 if np.abs(x - self.goal_position) < self.goal_margin * self.world_width else -1
+            # return 1 if np.abs(x - self.goal_position) < self.goal_margin * self.world_width else 0.0
 
     def step(self, action):
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
 
-        x, x_dot, theta, theta_dot = self.new_state(action)
-        # x, x_dot, theta, theta_dot = self.new_state(-10)
-        self.state = (x, x_dot, theta, theta_dot)
+        s, s_dot, theta, theta_dot = self.new_state(action)
+        self.state = (s, s_dot, theta, theta_dot)
 
-        if self.pole_touches_obstacle():
-            return np.array(self.state), -100, True, {}
+        x, x_dot = self.x(s), self.x_dot(s)
 
-        distance_from_goal = np.abs(x - self.goal_position)
+        failed = not self.x_min <= x <= self.x_max or \
+                 not self.theta_min <= theta <= self.theta_max or \
+                 self.pole_touches_obstacle()
 
-        # done = not self.x_min <= x <= self.x_max or \
-        #        not self.theta_min <= theta <= self.theta_max or \
-        #        self.times_at_goal >= self.goal_stable_duration
+        reward = self.reward(failed)
 
-        done = not self.x_min <= x <= self.x_max or \
-               not self.theta_min <= theta <= self.theta_max
+        self.times_at_goal += np.abs(s - self.goal_position) < self.goal_margin * self.world_width
+        successful = self.times_at_goal >= self.goal_stable_duration
 
-        if distance_from_goal < self.goal_margin * self.world_width:
-            self.times_at_goal += 1
-        else:
-            self.times_at_goal = 0
+        done = failed or successful
 
-        reward = self.reward(done)
+        self.episode_step += 1
 
-        return np.array(self.state), reward, done, {}
+        return np.array(self.state), reward, done, {'success': successful}
 
     def render(self, mode='human'):
 
