@@ -93,7 +93,7 @@ class CartPoleObstacleEnv(gym.Env):
         self.viewer = None
         self.state = None
 
-        self.episode_step = 1
+        self.episode_step = 0
         self.max_episode_steps = 500
 
         self.goal_margin = 1 / 24
@@ -107,7 +107,7 @@ class CartPoleObstacleEnv(gym.Env):
         self.state = np.array([-5 * pi / 2, 0.0, 0.0, 0.0])
         # self.state = np.zeros(shape=(4,))
         self.times_at_goal = 0
-        self.episode_step = 1
+        self.episode_step = 0
         return np.array(self.state)
 
     def seed(self, seed=None):
@@ -358,20 +358,18 @@ class CartPoleObstacleEnv(gym.Env):
             self.viewer.add_geom(flag)
 
             # goal margin
-            stone_width, stone_height = 20, 40
+            stone_width, stone_height = 20, 20
             stone_bottom_y = self.track_height_pixels
             left_stone_x = (self.goal_position - self.world_width * self.goal_margin - self.x_min) * self.scale
             right_stone_x = (self.goal_position + self.world_width * self.goal_margin - self.x_min) * self.scale
-            left_stone = rendering.FilledPolygon([(left_stone_x - stone_width / 2, stone_bottom_y),
-                                                  (left_stone_x + stone_width / 2, stone_bottom_y),
-                                                  (left_stone_x + stone_width / 2, stone_bottom_y + stone_height),
-                                                  (left_stone_x - stone_width / 2, stone_bottom_y + stone_height)])
-            right_stone = rendering.FilledPolygon([(right_stone_x - stone_width / 2, stone_bottom_y),
-                                                  (right_stone_x + stone_width / 2, stone_bottom_y),
-                                                  (right_stone_x + stone_width / 2, stone_bottom_y + stone_height),
+            left_stone = rendering.FilledPolygon([(left_stone_x, stone_bottom_y),
+                                                  (left_stone_x + stone_width, stone_bottom_y),
+                                                  (left_stone_x + stone_width / 2, stone_bottom_y + stone_height)])
+            right_stone = rendering.FilledPolygon([(right_stone_x - stone_width, stone_bottom_y),
+                                                  (right_stone_x, stone_bottom_y),
                                                   (right_stone_x - stone_width / 2, stone_bottom_y + stone_height)])
-            left_stone.set_color(255, 0, 0)
-            right_stone.set_color(255, 0, 0)
+            left_stone.set_color(0, 255, 0)
+            right_stone.set_color(0, 255, 0)
             self.viewer.add_geom(left_stone)
             self.viewer.add_geom(right_stone)
 
