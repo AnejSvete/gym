@@ -25,18 +25,18 @@ class CartPoleMountainEnv(gym.Env):
     }
 
     def __init__(self):
-        self.world_width, self.world_height = 4 * pi, 2 * pi
+        self.world_width, self.world_height = 8 * pi, 2 * pi
 
         self.gravity = -g
         self.mass_cart = 10.0
-        self.mass_pole = 5.0
+        self.mass_pole = 1.0
         self.total_mass = (self.mass_pole + self.mass_cart)
         self.length = 1.0  # actually half the pole's length
         self.pole_mass_length = (self.mass_pole * self.length)
         self.force_mag = 100
         self.tau = 0.02  # seconds between state updates
 
-        self.de_solver = 'scipy'
+        self.de_solver = 'euler'
 
         self.theta_min, self.theta_max = -pi / 3, pi / 3
         self.x_min, self.x_max = -self.world_width / 2, self.world_width / 2
@@ -44,15 +44,14 @@ class CartPoleMountainEnv(gym.Env):
         low = np.array([self.x_min * 2, -np.finfo(np.float32).max, self.theta_min * 2, -np.finfo(np.float32).max])
         high = np.array([self.x_max * 2, np.finfo(np.float32).max, self.theta_max * 2, np.finfo(np.float32).max])
 
-        # self.action_space = spaces.Discrete(2)
         # self.action_space = spaces.Discrete(3)
         self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(low, high, dtype=np.float64)
 
-        self.screen_width_pixels, self.screen_height_pixels = 1600, 800
+        self.screen_width_pixels, self.screen_height_pixels = 2400, 600
         self.scale = self.screen_width_pixels / self.world_width
 
-        self.cart_y_pixels = 100
+        self.cart_y_pixels = 100.0
         self.cart_width_pixels = 100.0
         self.cart_height_pixels = 60.0
         self.wheels_radius = self.cart_height_pixels / 3
@@ -65,12 +64,17 @@ class CartPoleMountainEnv(gym.Env):
         self.pole_length = 2 * self.length
         self.pole_length_pixels = self.scale * self.pole_length
 
-        self.height = 1
-        self.steepness = 0.8
+        self.height = 1.0
+        self.steepness = 1.0
+        self.bottom = -pi
+        self.offset = pi / (2 * self.steepness) + self.bottom
+        self.slope_length = pi / self.steepness
         self.initial_height = 0.75 * pi
 
-        # self.goal_position = 3 / 2 * pi
-        self.goal_position = 1.25 * pi
+        self.bottom_width = pi
+        self.contraction_factor = self.slope_length / (self.slope_length - self.bottom_width / 2)
+
+        self.goal_position = pi
 
         self.seed()
         self.viewer = None
@@ -80,6 +84,7 @@ class CartPoleMountainEnv(gym.Env):
         self.max_episode_steps = 500
 
         self.goal_margin = 1 / 24
+        self.min_goal, self.max_goal = self.bottom + self.slope_length, self.x_max
         self.goal_stable_duration = 25
         self.times_at_goal = 0
 
@@ -87,7 +92,7 @@ class CartPoleMountainEnv(gym.Env):
         # self.state = self.np_random.uniform(low=(-9 * pi / 16, -0.05, -0.05, -0.05),
         #                                     high=(-7 * pi / 16, 0.05, 0.05, 0.05),
         #                                     size=(4,))
-        self.state = np.array([- 9 * pi / 16, 0.0, 0.0, 0.0])
+        self.state = np.array([self.bottom, 0.0, 0.0, 0.0])
         # self.state = np.array([- pi / 2, 0.0, 0.0, 0.0])
         self.times_at_goal = 0
         self.episode_step = 1
@@ -122,22 +127,24 @@ class CartPoleMountainEnv(gym.Env):
         return 0
 
     def y(self, s):
-        return self.height * np.sin(self.steepness * (np.clip(s, -15 / 8 * pi, 5 * pi / 8))) + self.initial_height
-        # return self.height * np.sin(self.steepness * (np.clip(s, -7 / 4 * pi, 3 * pi / 4) - pi / 8)) + self.initial_height
-        # return self.height * np.sin(self.steepness * (np.clip(s, -7 / 4 * pi, 11 * pi / 12) - pi / 4)) + self.initial_height
-        # return self.height * np.sin(self.steepness * (np.clip(s, -3 / 2 * pi, 7 * pi / 6) - pi / 2)) + self.initial_height
+        w = np.array(s)
+        return self.height * np.sin(self.steepness * (np.clip(w, self.bottom - self.slope_length, self.bottom + self.slope_length) - self.offset)) + self.initial_height
+        # w_left, w_right = w[w <= self.bottom], w[w > self.bottom]
+        # y_left = self.height * np.sin(
+        #     self.steepness * (np.clip(w_left, self.bottom - self.slope_length,
+        #                               self.bottom - self.bottom_width / 2) - self.offset)) + self.initial_height
+        # y_right = self.height * np.sin(
+        #     self.steepness * (np.clip(w_right, self.bottom + self.bottom_width / 2,
+        #                               self.bottom + self.slope_length) - self.offset)) + self.initial_height
+        # return np.concatenate((y_left, y_right))
 
     def y_dot(self, s):
-        return self.height * self.steepness * np.cos(self.steepness * (np.clip(s, -15 / 8 * pi, 5 * pi / 8)))
-        # return self.height * self.steepness * np.cos(self.steepness * (np.clip(s, -7 / 4 * pi, 3 * pi / 4) - pi / 8))
-        # return self.height * self.steepness * np.cos(self.steepness * (np.clip(s, -7 / 4 * pi, 11 * pi / 12) - pi / 4))
-        # return self.height * self.steepness * np.cos(self.steepness * (np.clip(s, -3 / 2 * pi, 7 * pi / 6) - pi / 2))
+        w = np.array(s)
+        return self.height * self.steepness * np.cos(self.steepness * (np.clip(w, self.bottom - self.slope_length, self.bottom + self.slope_length) - self.offset))
 
     def y_dot_dot(self, s):
-        return -self.height * self.steepness ** 2 * np.sin(self.steepness * (np.clip(s, -15 / 8 * pi, 5 * pi / 8)))
-        # return -self.height * self.steepness**2 * np.sin(self.steepness * (np.clip(s, -7 / 4 * pi, 3 * pi / 4) - pi / 8))
-        # return -self.height * self.steepness**2 * np.sin(self.steepness * (np.clip(s, -7 / 4 * pi, 11 * pi / 12) - pi / 4))
-        # return -self.height * self.steepness**2 * np.sin(self.steepness * (np.clip(s, -3 / 2 * pi, 7 * pi / 6) - pi / 2))
+        w = np.array(s)
+        return -self.height * self.steepness ** 2 * np.sin(self.steepness * (np.clip(w, self.bottom - self.slope_length, self.bottom + self.slope_length) - self.offset))
 
     def phi(self, t):
         return np.arctan(self.y_dot(t))
@@ -146,11 +153,11 @@ class CartPoleMountainEnv(gym.Env):
         s, s_dot, theta, theta_dot = self.state
         return (-2 * F +
                 self.y_dot(s) * (
-                            -(self.gravity * (self.mass_pole + 2 * self.mass_cart + self.mass_pole * np.cos(2 * theta)))
-                            - 2 * self.pole_length * self.mass_pole * np.cos(theta) * theta_dot ** 2
-                            + s_dot ** 2 * (self.mass_pole * np.sin(2 * theta) * self.x_dot_dot(s)
-                                            + (self.mass_pole + 2 * self.mass_cart
-                                               + self.mass_pole * np.cos(2 * theta)) * self.y_dot_dot(s)))
+                        -(self.gravity * (self.mass_pole + 2 * self.mass_cart + self.mass_pole * np.cos(2 * theta)))
+                        - 2 * self.pole_length * self.mass_pole * np.cos(theta) * theta_dot ** 2
+                        + s_dot ** 2 * (self.mass_pole * np.sin(2 * theta) * self.x_dot_dot(s)
+                                        + (self.mass_pole + 2 * self.mass_cart
+                                           + self.mass_pole * np.cos(2 * theta)) * self.y_dot_dot(s)))
                 + self.x_dot(s) * (-(self.gravity * self.mass_pole * np.sin(2 * theta))
                                    - 2 * self.pole_length * self.mass_pole * np.sin(theta) * theta_dot ** 2
                                    + s_dot ** 2 * ((self.mass_pole + 2 * self.mass_cart
@@ -168,12 +175,12 @@ class CartPoleMountainEnv(gym.Env):
                                   + (self.mass_pole + self.mass_cart) * s_dot ** 2 * self.x_dot_dot(s))
                  + self.x_dot(s) * (self.pole_length * self.mass_pole * np.cos(theta) * theta_dot ** 2
                                     + (self.mass_pole + self.mass_cart) * (
-                                                self.gravity - s_dot ** 2 * self.y_dot_dot(s))))) / \
+                                            self.gravity - s_dot ** 2 * self.y_dot_dot(s))))) / \
                (self.pole_length * (
-                           (-self.mass_pole - self.mass_cart + self.mass_pole * np.cos(theta) ** 2) * self.x_dot(s) ** 2
-                           - self.mass_pole * np.sin(2 * theta) * self.x_dot(s) * self.y_dot(s)
-                           - ((self.mass_pole + 2 * self.mass_cart
-                               + self.mass_pole * np.cos(2 * theta)) * self.y_dot(s) ** 2) / 2.))
+                       (-self.mass_pole - self.mass_cart + self.mass_pole * np.cos(theta) ** 2) * self.x_dot(s) ** 2
+                       - self.mass_pole * np.sin(2 * theta) * self.x_dot(s) * self.y_dot(s)
+                       - ((self.mass_pole + 2 * self.mass_cart
+                           + self.mass_pole * np.cos(2 * theta)) * self.y_dot(s) ** 2) / 2.))
 
     def new_state(self, action):
 
@@ -273,7 +280,10 @@ class CartPoleMountainEnv(gym.Env):
             self.viewer.add_geom(self.track)
 
             # cart
-            l, r, t, b = -self.cart_width_pixels / 2, self.cart_width_pixels / 2, self.cart_height_pixels / 2, -self.cart_height_pixels / 2
+            l, r, t, b = [-self.cart_width_pixels / 2,
+                          self.cart_width_pixels / 2,
+                          self.cart_height_pixels / 2,
+                          -self.cart_height_pixels / 2]
             cart = rendering.FilledPolygon([(l, b), (l, t), (r, t), (r, b)])
             self.cart_trans = rendering.Transform()
             cart.add_attr(rendering.Transform(translation=(0, self.wheels_radius + self.cart_height_pixels / 2)))
@@ -320,25 +330,54 @@ class CartPoleMountainEnv(gym.Env):
             self.viewer.add_geom(flag)
 
             # goal margin
+            # stone_width, stone_height = 20, 40
+            # left_stone_x = (self.goal_position - self.world_width * self.goal_margin - self.x_min) * self.scale
+            # left_stone_bottom_y = self.y(left_stone_x / self.scale) * self.scale
+            # right_stone_x = (self.goal_position + self.world_width * self.goal_margin - self.x_min) * self.scale
+            # right_stone_bottom_y = self.y(right_stone_x / self.scale) * self.scale
+            # left_stone = rendering.FilledPolygon([(left_stone_x - stone_width / 2, left_stone_bottom_y),
+            #                                       (left_stone_x - stone_width / 2, left_stone_bottom_y + stone_height),
+            #                                       (left_stone_x + stone_width / 2, left_stone_bottom_y + stone_height),
+            #                                       (left_stone_x + stone_width / 2, left_stone_bottom_y)])
+            # right_stone = rendering.FilledPolygon([(right_stone_x - stone_width / 2, right_stone_bottom_y),
+            #                                        (right_stone_x - stone_width / 2,
+            #                                         right_stone_bottom_y + stone_height),
+            #                                        (right_stone_x + stone_width / 2,
+            #                                         right_stone_bottom_y + stone_height),
+            #                                        (right_stone_x + stone_width / 2, right_stone_bottom_y)])
+
             stone_width, stone_height = 20, 40
-            left_stone_x = (self.goal_position - self.world_width * self.goal_margin - self.x_min) * self.scale
+            left_stone_x = (self.min_goal - self.x_min) * self.scale
             left_stone_bottom_y = self.y(left_stone_x / self.scale) * self.scale
-            right_stone_x = (self.goal_position + self.world_width * self.goal_margin - self.x_min) * self.scale
+            right_stone_x = (self.max_goal - self.x_min) * self.scale
             right_stone_bottom_y = self.y(right_stone_x / self.scale) * self.scale
             left_stone = rendering.FilledPolygon([(left_stone_x - stone_width / 2, left_stone_bottom_y),
-                                                  (left_stone_x + stone_width / 2, left_stone_bottom_y),
+                                                  (left_stone_x - stone_width / 2, left_stone_bottom_y + stone_height),
                                                   (left_stone_x + stone_width / 2, left_stone_bottom_y + stone_height),
-                                                  (left_stone_x - stone_width / 2, left_stone_bottom_y + stone_height)])
-            right_stone = rendering.FilledPolygon([(right_stone_x - stone_width / 2, right_stone_bottom_y),
-                                                   (right_stone_x + stone_width / 2, right_stone_bottom_y),
-                                                   (right_stone_x + stone_width / 2,
-                                                    right_stone_bottom_y + stone_height),
-                                                   (right_stone_x - stone_width / 2,
-                                                    right_stone_bottom_y + stone_height)])
+                                                  (left_stone_x + stone_width / 2, left_stone_bottom_y)])
+            right_stone = rendering.FilledPolygon([(right_stone_x - stone_width, right_stone_bottom_y),
+                                                   (right_stone_x - stone_width, right_stone_bottom_y + stone_height),
+                                                   (right_stone_x, right_stone_bottom_y + stone_height),
+                                                   (right_stone_x, right_stone_bottom_y)])
             left_stone.set_color(255, 0, 0)
             right_stone.set_color(255, 0, 0)
             self.viewer.add_geom(left_stone)
             self.viewer.add_geom(right_stone)
+
+            for ii in range(0, 9):
+                marker = rendering.FilledPolygon([(ii * pi * self.scale - stone_width / 4, 0),
+                                                 (ii * pi * self.scale - stone_width / 4, stone_height / 2),
+                                                 (ii * pi * self.scale + stone_width / 4, stone_height / 2),
+                                                 (ii * pi * self.scale + stone_width / 4, 0)])
+                marker.set_color(255, 0, 0)
+                self.viewer.add_geom(marker)
+
+            marker = rendering.FilledPolygon([((self.bottom - self.x_min) * self.scale - stone_width / 4, 0),
+                                             ((self.bottom - self.x_min) * self.scale - stone_width / 4, stone_height / 2),
+                                             ((self.bottom - self.x_min) * self.scale + stone_width / 4, stone_height / 2),
+                                             ((self.bottom - self.x_min) * self.scale + stone_width / 4, 0)])
+            marker.set_color(255, 255, 0)
+            self.viewer.add_geom(marker)
 
         self.cart_trans.set_translation((x - self.x_min) * self.scale, self.y(x) * self.scale)
         k = np.arctan(-1 / self.y_dot(x)) if self.y_dot(x) != 0.0 else pi / 2
