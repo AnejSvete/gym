@@ -25,20 +25,20 @@ STOP_POLE = 5
 class CartPoleObstacleEnv(gym.Env):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second': 50
+        'video.frames_per_second': 100
     }
 
     def __init__(self, mode='train', de_solver='scipy', seed=None):
         self.world_width, self.world_height = 8 * pi, 2 * pi
 
         self.gravity = -g
-        self.mass_cart = 10.0
-        self.mass_pole = 0.5
+        self.mass_cart = 1.0
+        self.mass_pole = 0.1
         self.total_mass = (self.mass_pole + self.mass_cart)
-        self.length = 1.0  # actually half the pole's length
+        self.length = 0.5  # actually half the pole's length
         self.pole_mass_length = (self.mass_pole * self.length)
-        self.force_mag = 100.0
-        self.tau = 0.02  # seconds between state updates
+        self.force_mag = 10.0
+        self.tau = 0.01  # seconds between state updates
 
         self.de_solver = de_solver
         self.mode = mode
@@ -86,6 +86,7 @@ class CartPoleObstacleEnv(gym.Env):
 
         self.pole_length = self.pole_length_pixels / self.scale
 
+        self.starting_position = -5 * pi / 2
         self.goal_position = pi
 
         self.intersection_polygon = None
@@ -95,31 +96,51 @@ class CartPoleObstacleEnv(gym.Env):
         self.state = None
 
         self.episode_step = 0
-        self.max_episode_steps = 1000
+        self.max_episode_steps = 2000
 
         self.goal_margin = 1 / 12
         self.goal_stable_duration = 150
         self.times_at_goal = 0
 
     def reset(self, epoch=-1, num_epochs=-1):
-        # self.state = self.np_random.uniform(low=(-5 * pi / 2, -0.05, -0.05, -0.05),
-        #                                     high=(-2 * pi, 0.05, 0.05, 0.05),
-        #                                     size=(4,))
-        # TODO: normal with clamping...
         if epoch == -1:
             if self.mode == 'train':
-                self.state = self.np_random.uniform(low=(self.x_min + pi, -0.05, 0.0, 0.0),
-                                                    high=(self.x_max - pi, 0.05, 0.0, 0.0),
-                                                    size=(4,))
+                self.state = self.np_random.uniform(
+                    low=(self.x_min + pi, -0.05, -0.125, -0.05),
+                    high=(self.x_max - pi, 0.05, 0.125, 0.05),
+                    size=(4,))
             else:
                 self.state = np.array([-5 * pi / 2, 0.0, 0.0, 0.0])
         else:
             if self.mode == 'train':
-                self.state = self.np_random.uniform(low=(self.goal_position - (epoch / num_epochs) * 5 * pi, -0.05, 0.0, 0.0),
-                                                    high=(self.goal_position + (epoch / num_epochs) * 3 * pi, 0.05, 0.0, 0.0),
-                                                    size=(4,))
+                self.state = self.np_random.uniform(
+                    low=(
+                        np.clip(
+                            self.goal_position - pi / 2 -
+                            (epoch / num_epochs) * 10 * pi,
+                            -3.5 * pi, 3.5 * pi),
+                        -0.05, -0.125, -0.05),
+                    high=(
+                        np.clip(
+                            self.goal_position + pi / 2 -
+                            (epoch / num_epochs) * 10 * pi,
+                            -3.5 * pi, 3.5 * pi),
+                        0.05, 0.125, 0.05),
+                    # low=(
+                    #     np.clip(
+                    #         self.starting_position + 1.5 * pi -
+                    #         (epoch / num_epochs) * 20 * pi,
+                    #         -3.5 * pi, 3.5 * pi),
+                    #     -0.05, 0.0, 0.0),
+                    # high=(
+                    #     np.clip(
+                    #         self.starting_position + 2.5 * pi / 2 -
+                    #         (epoch / num_epochs) * 20 * pi,
+                    #         -3.5 * pi, 3.5 * pi),
+                    #     0.05, 0.0, 0.0),
+                    size=(4,))
             else:
-                self.state = np.array([-5 * pi / 2, 0.0, 0.0, 0.0])
+                self.state = np.array([self.starting_position, 0.0, 0.0, 0.0])
         self.times_at_goal = 0
         self.episode_step = 0
         return np.array(self.state)
@@ -260,7 +281,7 @@ class CartPoleObstacleEnv(gym.Env):
                 self.theta_dot, self.theta = z
                 return np.array((self.theta_dot_dot(force), z[0]))
 
-            t = np.linspace(0, 0.02, num=2)
+            t = np.linspace(0, self.tau, num=2)
 
             s_dot_tmp, s_tmp = odeint(ds, np.array([s_dot, s]), t, args=(force,)).T
             theta_dot_tmp, theta_tmp = odeint(dtheta, np.array([theta_dot, theta]), t, args=(force,)).T
@@ -281,12 +302,12 @@ class CartPoleObstacleEnv(gym.Env):
     def reward(self, failed):
         s, s_dot, theta, theta_dot = self.state
         x = self.x(s)
-        if failed:
+        if self.episode_step >= self.max_episode_steps - 1:
+            return -2000
+        elif failed:
             return -2 * (self.max_episode_steps - self.episode_step)
-            # return -1
         else:
-            return 0 if np.abs(x - self.goal_position) < self.goal_margin * self.world_width else -1
-            # return 0 if np.abs(x - self.goal_position) < self.goal_margin * self.world_width else -1
+            return 2000.0 / 150.0 if np.abs(x - self.goal_position) < self.goal_margin * self.world_width else -1
 
     def step(self, action):
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
@@ -298,7 +319,8 @@ class CartPoleObstacleEnv(gym.Env):
 
         failed = not self.x_min <= x <= self.x_max or \
                  not self.theta_min <= theta <= self.theta_max or \
-                 self.pole_touches_obstacle()
+                 self.pole_touches_obstacle() or \
+                 self.episode_step >= self.max_episode_steps - 1
 
         reward = self.reward(failed)
 
@@ -313,7 +335,10 @@ class CartPoleObstacleEnv(gym.Env):
 
         self.episode_step += 1
 
-        return np.array(self.state), reward, done, {'success': successful}
+        info = {'success': successful,
+                'time_limit': self.episode_step >= self.max_episode_steps}
+
+        return np.array(self.state), reward, done, info
 
     def render(self, mode='human'):
 
@@ -329,6 +354,32 @@ class CartPoleObstacleEnv(gym.Env):
                                                   (self.screen_width_pixels, 0)])
             self.track.set_color(0, 255, 0)
             self.viewer.add_geom(self.track)
+
+            # flag
+            flag_x = (self.goal_position - self.x_min) * self.scale
+            flag_bottom_y = self.track_height_pixels
+            flag_top_y = flag_bottom_y + 200.0
+            flagpole = rendering.Line((flag_x, flag_bottom_y), (flag_x, flag_top_y))
+            self.viewer.add_geom(flagpole)
+            flag = rendering.FilledPolygon([(flag_x, flag_top_y), (flag_x, flag_top_y - 50), (flag_x + 100, flag_top_y - 30)])
+            flag.set_color(0.8, 0.8, 0)
+            self.viewer.add_geom(flag)
+
+            # goal margin
+            stone_width, stone_height = 20, 20
+            stone_bottom_y = self.track_height_pixels
+            left_stone_x = (self.goal_position - self.world_width * self.goal_margin - self.x_min) * self.scale
+            right_stone_x = (self.goal_position + self.world_width * self.goal_margin - self.x_min) * self.scale
+            left_stone = rendering.FilledPolygon([(left_stone_x, stone_bottom_y),
+                                                  (left_stone_x + stone_width, stone_bottom_y),
+                                                  (left_stone_x + stone_width / 2, stone_bottom_y + stone_height)])
+            right_stone = rendering.FilledPolygon([(right_stone_x - stone_width, stone_bottom_y),
+                                                  (right_stone_x, stone_bottom_y),
+                                                  (right_stone_x - stone_width / 2, stone_bottom_y + stone_height)])
+            left_stone.set_color(0, 255, 0)
+            right_stone.set_color(0, 255, 0)
+            self.viewer.add_geom(left_stone)
+            self.viewer.add_geom(right_stone)
 
             # cart
             l, r, t, b = -self.cart_width_pixels / 2, self.cart_width_pixels / 2, self.cart_height_pixels / 2, -self.cart_height_pixels / 2
@@ -364,32 +415,6 @@ class CartPoleObstacleEnv(gym.Env):
             self.axle.add_attr(self.cart_trans)
             self.axle.set_color(0.5, 0.5, 0.8)
             self.viewer.add_geom(self.axle)
-
-            # flag
-            flag_x = (self.goal_position - self.x_min) * self.scale
-            flag_bottom_y = self.track_height_pixels
-            flag_top_y = flag_bottom_y + 200.0
-            flagpole = rendering.Line((flag_x, flag_bottom_y), (flag_x, flag_top_y))
-            self.viewer.add_geom(flagpole)
-            flag = rendering.FilledPolygon([(flag_x, flag_top_y), (flag_x, flag_top_y - 50), (flag_x + 100, flag_top_y - 30)])
-            flag.set_color(0.8, 0.8, 0)
-            self.viewer.add_geom(flag)
-
-            # goal margin
-            stone_width, stone_height = 20, 20
-            stone_bottom_y = self.track_height_pixels
-            left_stone_x = (self.goal_position - self.world_width * self.goal_margin - self.x_min) * self.scale
-            right_stone_x = (self.goal_position + self.world_width * self.goal_margin - self.x_min) * self.scale
-            left_stone = rendering.FilledPolygon([(left_stone_x, stone_bottom_y),
-                                                  (left_stone_x + stone_width, stone_bottom_y),
-                                                  (left_stone_x + stone_width / 2, stone_bottom_y + stone_height)])
-            right_stone = rendering.FilledPolygon([(right_stone_x - stone_width, stone_bottom_y),
-                                                  (right_stone_x, stone_bottom_y),
-                                                  (right_stone_x - stone_width / 2, stone_bottom_y + stone_height)])
-            left_stone.set_color(0, 255, 0)
-            right_stone.set_color(0, 255, 0)
-            self.viewer.add_geom(left_stone)
-            self.viewer.add_geom(right_stone)
 
             # obstacle
             l, r, t, b = self.obstacle_coordinate_pixels
