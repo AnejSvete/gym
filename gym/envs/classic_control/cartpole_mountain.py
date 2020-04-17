@@ -21,7 +21,7 @@ STOP_POLE = 5
 class CartPoleMountainEnv(gym.Env):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second': 50
+        'video.frames_per_second': 100
     }
 
     def __init__(self, mode='train', de_solver='scipy', seed=None):
@@ -36,7 +36,7 @@ class CartPoleMountainEnv(gym.Env):
         self.length = 1.0  # actually half the pole's length
         self.pole_mass_length = (self.mass_pole * self.length)
         self.force_mag = 100
-        self.tau = 0.02  # seconds between state updates
+        self.tau = 0.01  # seconds between state updates
 
         self.de_solver = de_solver
 
@@ -68,7 +68,7 @@ class CartPoleMountainEnv(gym.Env):
 
         # Environment parameters:
         self.initial_height = 0.75 * pi
-        self.height = 1.5
+        self.height = 1.0
         self.steepness = 0.75
         self.bottom = -pi
         self.bottom_width = pi / 8
@@ -111,8 +111,10 @@ class CartPoleMountainEnv(gym.Env):
                 # self.state = self.np_random.uniform(low=(self.min_goal + pi, -0.05, -0.05, -0.05),
                 #                                     high=(self.max_goal - 2 * pi, 0.05, 0.05, 0.05),
                 #                                     size=(4,))
-                area = np.random.randint(0, 1 + 1)
-                if area == 0:
+                # area = np.random.randint(0, 1 + 1)
+                # if area == 0:
+                area = self.np_random.random()
+                if area < 0.5:
                     self.state = self.np_random.uniform(low=(self.bottom - 1.5 * self.bottom_width, -0.05, -0.05, -0.05),
                                                     high=(self.bottom - 1.5 * self.bottom_width, 0.05, 0.05, 0.05),
                                                     size=(4,))
@@ -256,7 +258,7 @@ class CartPoleMountainEnv(gym.Env):
                 self.theta_dot, self.theta = z
                 return np.array((self.theta_dot_dot(force)[0], z[0]))
 
-            t = np.linspace(0, 0.02, num=2)
+            t = np.linspace(0, self.tau, num=2)
 
             s_dot_tmp, s_tmp = odeint(ds, np.array([s_dot, s]), t, args=(force,)).T
             theta_dot_tmp, theta_tmp = odeint(dtheta, np.array([theta_dot, theta]), t, args=(force,)).T
@@ -307,7 +309,10 @@ class CartPoleMountainEnv(gym.Env):
 
         self.episode_step += 1
 
-        return np.array(self.state), reward, done, {'success': successful}
+        info = {'success': successful,
+                'time_limit': self.episode_step >= self.max_episode_steps}
+
+        return np.array(self.state), reward, done, info
 
     def render(self, mode='human'):
 
