@@ -24,23 +24,26 @@ class CartPoleMountainEnv(gym.Env):
         'video.frames_per_second': 100
     }
 
-    def __init__(self, mode='train', de_solver='scipy', seed=None):
-        self.world_width, self.world_height = 8 * pi, 2 * pi
+    def __init__(self, mode='train', de_solver='euler', seed=468731):
+
+        self.seed(seed)
+
+        self.world_width, self.world_height = 2 * pi, pi
 
         self.mode = mode
 
         self.gravity = -g
-        self.mass_cart = 10.0
-        self.mass_pole = 0.25
+        self.mass_cart = 1.0
+        self.mass_pole = 0.1
         self.total_mass = (self.mass_pole + self.mass_cart)
-        self.length = 1.0  # actually half the pole's length
+        self.length = 0.5  # actually half the pole's length
         self.pole_mass_length = (self.mass_pole * self.length)
-        self.force_mag = 100
+        self.force_mag = 10
         self.tau = 0.01  # seconds between state updates
 
         self.de_solver = de_solver
 
-        self.theta_min, self.theta_max = -pi / 3, pi / 3
+        self.theta_min, self.theta_max = -pi / 2, pi / 2
         self.x_min, self.x_max = -self.world_width / 2, self.world_width / 2
 
         low = np.array([self.x_min * 2, -np.finfo(np.float32).max, self.theta_min * 2, -np.finfo(np.float32).max])
@@ -50,7 +53,7 @@ class CartPoleMountainEnv(gym.Env):
         self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(low, high, dtype=np.float64)
 
-        self.screen_width_pixels, self.screen_height_pixels = 2400, 600
+        self.screen_width_pixels, self.screen_height_pixels = 1200, 600
         self.scale = self.screen_width_pixels / self.world_width
 
         self.cart_y_pixels = 100.0
@@ -62,31 +65,33 @@ class CartPoleMountainEnv(gym.Env):
         self.cart_width = self.cart_width_pixels / self.scale
         self.cart_height = self.cart_height_pixels / self.scale
 
-        self.pole_width_pixels = 20.0
+        self.pole_width_pixels = 8.0
         self.pole_length = 2 * self.length
         self.pole_length_pixels = self.scale * self.pole_length
 
         # Environment parameters:
-        self.initial_height = 0.75 * pi
-        self.height = 1.0
-        self.steepness = 0.75
-        self.bottom = -pi
-        self.bottom_width = pi / 8
-        self.goal_position = 2 * pi
+        self.initial_height = 0.3 * pi
+        self.height = 0.5
+        self.steepness = 1.7
 
-        # Not parameters:
-        self.offset = pi / (2 * self.steepness) + self.bottom
         self.slope_length = pi / self.steepness
 
-        self.seed(seed)
+        self.bottom = self.x_min + self.slope_length
+        self.bottom_width = pi / 32
+
+        self.offset = pi / (2 * self.steepness) + self.bottom
+
+        self.starting_position = self.bottom
+        self.goal_position = self.x_max - self.world_width / 4
+
         self.viewer = None
         self.state = None
 
         self.episode_step = 0
-        self.max_episode_steps = 1000
+        self.max_episode_steps = 2000
 
         self.goal_margin = 1 / 24
-        self.min_goal, self.max_goal = self.bottom + self.bottom_width / 2 + self.slope_length, self.x_max - np.pi
+        self.min_goal, self.max_goal = self.bottom + self.bottom_width / 2 + self.slope_length, self.x_max
         self.goal_stable_duration = 200
         self.times_at_goal = 0
 
@@ -94,37 +99,44 @@ class CartPoleMountainEnv(gym.Env):
         # print(f'ENV: epoch = {epoch}, num_epochs = {num_epochs}')
         if epoch == -1:
             if self.mode == 'train':
-                self.state = self.np_random.uniform(low=(self.x_min + pi, -0.05, -0.05, -0.05),
-                                                    high=(self.x_max - pi, 0.05, 0.05, 0.05),
+                area = np.random.rand()
+                if area < 1 / 3:
+                    self.state = np.random.uniform(low=(self.bottom - 2 * self.bottom_width, -0.125, -0.05, -0.05),
+                                                    high=(self.bottom - 2 * self.bottom_width, 0.125, 0.05, 0.05),
                                                     size=(4,))
+                else:
+                    self.state = np.random.uniform(low=(self.min_goal, -0.125, -0.05, -0.05),
+                                                        high=(self.max_goal, 0.125, 0.05, 0.05),
+                                                        size=(4,))
             else:
-                self.state = self.np_random.uniform(low=(self.bottom, -0.05, -0.05, -0.05),
-                                                    high=(self.bottom, 0.05, 0.05, 0.05),
-                                                    size=(4,))
+                self.state = np.random.uniform(
+                    low=(self.bottom - self.bottom_width / 2, -0.125, -0.05, -0.05),
+                    high=(self.bottom + self.bottom_width / 2, 0.125, 0.05, 0.05),
+                    size=(4,))
                 # self.state = np.array([self.bottom, 0.0, 0.0, 0.0])
         else:
             if self.mode == 'train':
                 # print(f'[{self.min_goal - (epoch / num_epochs) * 4 * pi}, {self.x_max - 2 * pi}]')
-                # self.state = self.np_random.uniform(low=(self.min_goal - (epoch / num_epochs) * 4 * pi, -0.05, -0.05, -0.05),
+                # self.state = np.random.uniform()(low=(self.min_goal - (epoch / num_epochs) * 4 * pi, -0.05, -0.05, -0.05),
                 #                                     high=(self.max_goal - 2 * pi, 0.05, 0.05, 0.05),
                 #                                     size=(4,))
-                # self.state = self.np_random.uniform(low=(self.min_goal + pi, -0.05, -0.05, -0.05),
+                # self.state = np.random.uniform()(low=(self.min_goal + pi, -0.05, -0.05, -0.05),
                 #                                     high=(self.max_goal - 2 * pi, 0.05, 0.05, 0.05),
                 #                                     size=(4,))
                 # area = np.random.randint(0, 1 + 1)
                 # if area == 0:
-                area = self.np_random.random()
+                area = np.random.rand()
                 if area < 0.5:
-                    self.state = self.np_random.uniform(low=(self.bottom - 1.5 * self.bottom_width, -0.05, -0.05, -0.05),
+                    self.state = np.random.uniform(low=(self.bottom - 1.5 * self.bottom_width, -0.05, -0.05, -0.05),
                                                     high=(self.bottom - 1.5 * self.bottom_width, 0.05, 0.05, 0.05),
                                                     size=(4,))
                 else:
-                    self.state = self.np_random.uniform(low=(self.min_goal + pi, -0.05, -0.05, -0.05),
+                    self.state = np.random.uniform(low=(self.min_goal + pi, -0.05, -0.05, -0.05),
                                                         high=(self.max_goal - pi, 0.05, 0.05, 0.05),
                                                         size=(4,))
 
             else:
-                self.state = self.np_random.uniform(low=(self.bottom, -0.05, -0.05, -0.05),
+                self.state = np.random.uniform(low=(self.bottom, -0.05, -0.05, -0.05),
                                                     high=(self.bottom, 0.05, 0.05, 0.05),
                                                     size=(4,))
         self.times_at_goal = 0
@@ -132,6 +144,7 @@ class CartPoleMountainEnv(gym.Env):
         return np.array(self.state)
 
     def seed(self, seed=None):
+        np.random.seed(seed)
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
@@ -280,10 +293,9 @@ class CartPoleMountainEnv(gym.Env):
         s, s_dot, theta, theta_dot = self.state
         x = self.x(s)
         if failed:
-            return - 2 * (self.max_episode_steps - self.episode_step)
+            return -2 * (self.max_episode_steps - self.episode_step) / (2 * self.max_episode_steps)
         else:
-            # return 0.0 if np.abs(x - self.goal_position) < self.goal_margin * self.world_width else -1.0
-            return 0.0 if self.min_goal <= x <= self.max_goal else -1.0
+            return 0 if self.min_goal <= x <= self.max_goal else -1 / (2 * self.max_episode_steps)
 
     def step(self, action):
         assert self.action_space.contains(action), "%r (%s) invalid" % (action, type(action))
@@ -298,7 +310,7 @@ class CartPoleMountainEnv(gym.Env):
 
         reward = self.reward(failed)
 
-        if self.min_goal + pi / 2 <= s <= self.max_goal:
+        if self.min_goal <= s <= self.max_goal:
             self.times_at_goal += 1
         else:
             self.times_at_goal = 0
@@ -324,8 +336,7 @@ class CartPoleMountainEnv(gym.Env):
 
             # track / ground
             xs = np.linspace(self.x_min, self.x_max, 2000)
-            # ys = np.array(self.y(xs))
-            ys = np.array([self.y(t) for t in xs])
+            ys = np.array(self.y(xs))
             xys = list(zip((xs - self.x_min) * self.scale, ys * self.scale))
 
             self.track = rendering.make_polyline([(0, 0), *xys, (self.screen_width_pixels, 0)])
