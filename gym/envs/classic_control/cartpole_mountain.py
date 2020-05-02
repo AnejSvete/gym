@@ -34,7 +34,7 @@ class CartPoleMountainEnv(gym.Env):
 
         self.gravity = -g
         self.mass_cart = 1.0
-        self.mass_pole = 0.1
+        self.mass_pole = 0.05
         self.total_mass = (self.mass_pole + self.mass_cart)
         self.length = 0.5  # actually half the pole's length
         self.pole_mass_length = (self.mass_pole * self.length)
@@ -57,8 +57,8 @@ class CartPoleMountainEnv(gym.Env):
             self.theta_max * 2,
             np.finfo(np.float32).max])
 
-        # self.action_space = spaces.Discrete(3)
-        self.action_space = spaces.Discrete(2)
+        self.action_space = spaces.Discrete(3)
+        # self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(low, high, dtype=np.float64)
 
         self.screen_width_pixels, self.screen_height_pixels = 1200, 600
@@ -96,7 +96,7 @@ class CartPoleMountainEnv(gym.Env):
         self.state = None
 
         self.episode_step = 0
-        self.max_episode_steps = 2000
+        self.max_episode_steps = 1000
 
         self.min_goal, self.max_goal = \
             self.bottom + self.bottom_width / 2 + self.slope_length, self.x_max
@@ -271,7 +271,8 @@ class CartPoleMountainEnv(gym.Env):
             force = 10 * self.force_mag \
                 if action == -1 else -10 * self.force_mag
         else:
-            force = self.force_mag if action == 1 else -self.force_mag
+            # force = self.force_mag if action == 1 else -self.force_mag
+            force = (action - 1) * self.force_mag
 
         if self.de_solver == 'euler':
 
@@ -317,9 +318,9 @@ class CartPoleMountainEnv(gym.Env):
         s, s_dot, theta, theta_dot = self.state
         x = self.x(s)
         if failed:
-            # return -2 * (self.max_episode_steps - self.episode_step) / \
-            #        (2 * self.max_episode_steps)
-            return -0.5
+            return -2 * (self.max_episode_steps - self.episode_step) / \
+                   (2 * self.max_episode_steps)
+            # return -0.5
         else:
             return 0 if self.min_goal <= x <= self.max_goal \
                 else -1 / (2 * self.max_episode_steps)
