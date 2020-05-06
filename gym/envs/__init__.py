@@ -67,7 +67,7 @@ register(
 register(
     id='CartPole-v2',
     entry_point='gym.envs.classic_control:CartPoleObstacleEnv',
-    max_episode_steps=2000,
+    max_episode_steps=1000,
 )
 
 register(

@@ -32,7 +32,7 @@ class CartPoleObstacleEnv(gym.Env):
 
         self.gravity = -g
         self.mass_cart = 1.0
-        self.mass_pole = 0.05
+        self.mass_pole = 0.1
         self.total_mass = (self.mass_pole + self.mass_cart)
         self.length = 0.5  # actually half the pole's length
         self.pole_mass_length = (self.mass_pole * self.length)
@@ -109,7 +109,7 @@ class CartPoleObstacleEnv(gym.Env):
         self.state = None
 
         self.episode_step = 0
-        self.max_episode_steps = 2000
+        self.max_episode_steps = 1000
 
         self.goal_margin = pi / 3
         self.goal_stable_duration = 200
