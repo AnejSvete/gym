@@ -30,7 +30,7 @@ class CartPoleSimpleObstacleEnv(gym.Env):
 
         self.world_width, self.world_height = 3 * pi, pi
 
-        self.gravity = -g
+        self.gravity = g
         self.mass_cart = 1.0
         self.mass_pole = 0.1
         self.total_mass = (self.mass_pole + self.mass_cart)
@@ -235,6 +235,7 @@ class CartPoleSimpleObstacleEnv(gym.Env):
                                               np.array([theta_dot, theta]),
                                               t, args=(force,)).T
 
+            theta_dot_dot = self.theta_dot_dot(force, theta, theta_dot)
             x_dot_tmp, x_tmp = odeint(dx, np.array([x_dot, x]), t,
                                       args=(force,)).T
 
