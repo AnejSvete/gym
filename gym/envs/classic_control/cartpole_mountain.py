@@ -36,8 +36,7 @@ class CartPoleMountainEnv(gym.Env):
         self.mass_cart = 1.0
         self.mass_pole = 0.05
         self.total_mass = (self.mass_pole + self.mass_cart)
-        self.length = 0.5  # actually half the pole's length
-        self.pole_mass_length = (self.mass_pole * self.length)
+        self.pole_length = 1.0
         self.force_mag = 10
         self.tau = 0.01  # seconds between state updates
 
@@ -64,17 +63,17 @@ class CartPoleMountainEnv(gym.Env):
         self.screen_width_pixels, self.screen_height_pixels = 1200, 600
         self.scale = self.screen_width_pixels / self.world_width
 
-        self.cart_y_pixels = 100.0
-        self.cart_width_pixels = 100.0
-        self.cart_height_pixels = 60.0
-        self.wheels_radius = self.cart_height_pixels / 3
+        self.cart_width = 0.4
+        self.cart_height = 0.25
+        self.track_height = 0.2
 
-        self.cart_y = self.cart_y_pixels / self.scale
-        self.cart_width = self.cart_width_pixels / self.scale
-        self.cart_height = self.cart_height_pixels / self.scale
+        self.cart_width_pixels = self.cart_width * self.scale
+        self.cart_height_pixels = self.cart_height * self.scale
+        self.track_height_pixels = self.track_height * self.scale
+        self.wheels_radius = 0.3 * self.cart_height_pixels
 
-        self.pole_width_pixels = 8.0
-        self.pole_length = 2 * self.length
+        self.pole_width = 0.04
+        self.pole_width_pixels = self.pole_width * self.scale
         self.pole_length_pixels = self.scale * self.pole_length
 
         # Environment parameters:
@@ -102,6 +101,8 @@ class CartPoleMountainEnv(gym.Env):
             self.bottom + self.bottom_width / 2 + self.slope_length, self.x_max
         self.goal_stable_duration = 150
         self.times_at_goal = 0
+
+        self.R, self.r, self.d = 1.0, 0.5, 0.25
 
     def reset(self, epoch=-1, num_epochs=-1):
         # print(f'ENV: epoch = {epoch}, num_epochs = {num_epochs}')
@@ -395,7 +396,7 @@ class CartPoleMountainEnv(gym.Env):
                 translation=(self.cart_width_pixels / 4, self.wheels_radius)))
             front_wheel.add_attr(self.cart_trans)
             self.viewer.add_geom(front_wheel)
-            back_wheel = rendering.make_circle(self.cart_height_pixels / 3)
+            back_wheel = rendering.make_circle(self.wheels_radius)
             back_wheel.set_color(0.5, 0.5, 0.5)
             back_wheel.add_attr(rendering.Transform(
                 translation=(-self.cart_width_pixels / 4, self.wheels_radius)))

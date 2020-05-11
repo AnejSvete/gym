@@ -34,8 +34,7 @@ class CartPoleObstacleEnv(gym.Env):
         self.mass_cart = 1.0
         self.mass_pole = 0.1
         self.total_mass = (self.mass_pole + self.mass_cart)
-        self.length = 0.5  # actually half the pole's length
-        self.pole_mass_length = (self.mass_pole * self.length)
+        self.pole_length = 1.0
         self.force_mag = 10.0
         self.tau = 0.01  # seconds between state updates
 
@@ -62,10 +61,14 @@ class CartPoleObstacleEnv(gym.Env):
         self.screen_width_pixels, self.screen_height_pixels = 1800, 600
         self.scale = self.screen_width_pixels / self.world_width
 
-        self.cart_width_pixels = 100.0
-        self.cart_height_pixels = 60.0
-        self.track_height_pixels = 50.0
-        self.wheels_radius = self.cart_height_pixels / 3
+        self.cart_width = 0.4
+        self.cart_height = 0.25
+        self.track_height = 0.2
+
+        self.cart_width_pixels = self.cart_width * self.scale
+        self.cart_height_pixels = self.cart_height * self.scale
+        self.track_height_pixels = self.track_height * self.scale
+        self.wheels_radius = 0.3 * self.cart_height_pixels
         self.cart_middle_y_pixels = self.track_height_pixels + \
             self.wheels_radius + \
             self.cart_height_pixels / 2
@@ -77,28 +80,20 @@ class CartPoleObstacleEnv(gym.Env):
         self.cart_middle_y = self.cart_middle_y_pixels / self.scale
         self.cart_top_y = self.cart_top_y_pixels / self.scale
         self.cart_bottom_y = self.cart_bottom_y_pixels / self.scale
-        self.cart_width = self.cart_width_pixels / self.scale
-        self.cart_height = self.cart_height_pixels / self.scale
-        self.track_height = self.track_height_pixels / self.scale
 
-        self.pole_width_pixels = 8
-        self.pole_length_pixels = self.scale * (2 * self.length)
+        self.pole_width = 0.04
+        self.pole_width_pixels = self.pole_width * self.scale
+        self.pole_length_pixels = self.pole_length * self.scale
 
         self.pole_bottom_y_pixels = self.cart_top_y_pixels
         self.pole_bottom_y = self.pole_bottom_y_pixels / self.scale
 
-        self.obstacle_width_pixels = 8
-        self.obstacle_height_pixels = 0.4 * self.screen_height_pixels
         self.obstacle_location = self.x_min + self.world_width / 3
         self.obstacle_location_pixels = \
             (self.obstacle_location - self.x_min) * self.scale
-        self.obstacle_coordinate_pixels = [
-            self.obstacle_location_pixels - self.obstacle_width_pixels / 2,
-            self.obstacle_location_pixels + self.obstacle_width_pixels / 2,
-            self.screen_height_pixels,
-            self.screen_height_pixels - self.obstacle_height_pixels]
-
-        self.pole_length = self.pole_length_pixels / self.scale
+        self.obstacle_width = 0.04
+        self.obstacle_width_pixels = self.obstacle_width * self.scale
+        self.set_obstacle_height()
 
         self.starting_position = self.obstacle_location - pi / 2
         self.goal_position = self.starting_position + 3 / 2 * pi
@@ -206,18 +201,14 @@ class CartPoleObstacleEnv(gym.Env):
                        - ((self.mass_pole + 2 * self.mass_cart
                            + self.mass_pole * np.cos(2 * theta)) * self.y_dot(s) ** 2) / 2.))
 
-    def pole_top_coordinates(self, screen_coordinates=True):
+    def pole_top_coordinates(self):
         s, s_dot, theta, theta_dot = self.state
         x = self.x(s)
-        if screen_coordinates:
-            return (x * self.scale + self.screen_width_pixels / 2 +
-                    self.pole_length_pixels * np.sin(theta),
-                    self.cart_top_y_pixels +
-                    self.pole_length_pixels * np.cos(theta))
-        else:
-            return (x + self.pole_length * np.sin(theta),
-                    self.track_height + self.cart_height +
-                    self.pole_length * np.cos(theta))
+        return (x * self.scale + self.screen_width_pixels / 2 +
+                self.pole_length_pixels * np.sin(theta),
+                self.cart_top_y_pixels +
+                self.pole_length_pixels * np.cos(theta) -
+                self.pole_width_pixels / 2)
 
     def pole_bottom_coordinates(self, screen_coordinates=True):
         s, s_dot, theta, theta_dot = self.state
@@ -239,7 +230,7 @@ class CartPoleObstacleEnv(gym.Env):
             self.pole_width_pixels / 2)
         intersection = obstacle.intersection(pole)
 
-        if intersection.is_empty:
+        if intersection.is_empty or intersection.area == 0.0:
             self.intersection_polygon = None
             return False
         else:
@@ -300,12 +291,15 @@ class CartPoleObstacleEnv(gym.Env):
         s, s_dot, theta, theta_dot = self.state
         x = self.x(s)
         if failed:
+            # return -2 * (self.max_episode_steps - self.episode_step)
             # return -2 * (self.max_episode_steps - self.episode_step) / \
             #        (2 * self.max_episode_steps)
             return -0.5
         else:
             return 0 if np.abs(x - self.goal_position) < self.goal_margin \
                 else -1 / (2 * self.max_episode_steps)
+            # return 0 if np.abs(x - self.goal_position) < self.goal_margin \
+            #     else -1
 
     def step(self, action):
         assert self.action_space.contains(action), \
@@ -339,6 +333,19 @@ class CartPoleObstacleEnv(gym.Env):
 
         return np.array(self.state), reward, done, info
 
+    def set_obstacle_height(self, below_pole_top=0.025):
+
+        pole_top = self.cart_top_y + self.pole_length
+
+        self.obstacle_height = self.world_height - pole_top + below_pole_top
+        self.obstacle_height_pixels = self.obstacle_height * self.scale
+
+        self.obstacle_coordinate_pixels = [
+            self.obstacle_location_pixels - self.obstacle_width_pixels / 2,
+            self.obstacle_location_pixels + self.obstacle_width_pixels / 2,
+            self.screen_height_pixels,
+            self.screen_height_pixels - self.obstacle_height_pixels]
+
     def render(self, mode='human'):
 
         x, x_dot, theta, theta_dot = self.state
@@ -359,7 +366,7 @@ class CartPoleObstacleEnv(gym.Env):
             # flag
             flag_x = (self.goal_position - self.x_min) * self.scale
             flag_bottom_y = self.track_height_pixels
-            flag_top_y = flag_bottom_y + 100.0
+            flag_top_y = flag_bottom_y + 200.0
             flagpole = rendering.Line((flag_x, flag_bottom_y),
                                       (flag_x, flag_top_y))
             self.viewer.add_geom(flagpole)
@@ -370,7 +377,7 @@ class CartPoleObstacleEnv(gym.Env):
             self.viewer.add_geom(flag)
 
             # goal margin
-            stone_width, stone_height = 20, 20
+            stone_width, stone_height = 15, 15
             stone_bottom_y = self.track_height_pixels
             left_stone_x = (self.goal_position -
                             self.goal_margin - self.x_min) * self.scale
@@ -409,7 +416,7 @@ class CartPoleObstacleEnv(gym.Env):
                              -self.cart_height_pixels / 2)))
             front_wheel.add_attr(self.cart_trans)
             self.viewer.add_geom(front_wheel)
-            back_wheel = rendering.make_circle(self.cart_height_pixels / 3)
+            back_wheel = rendering.make_circle(self.wheels_radius)
             back_wheel.set_color(0.5, 0.5, 0.5)
             back_wheel.add_attr(rendering.Transform(
                 translation=(-self.cart_width_pixels / 4,
