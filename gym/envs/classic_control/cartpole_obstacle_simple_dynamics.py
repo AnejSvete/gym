@@ -18,7 +18,7 @@ STOP_CART = 4
 STOP_POLE = 5
 
 
-class CartPoleObstacleEnv(gym.Env):
+class CartPoleSimpleObstacleEnv(gym.Env):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
         'video.frames_per_second': 100
@@ -152,63 +152,16 @@ class CartPoleObstacleEnv(gym.Env):
         elif cmd == PUSH_POLE_LEFT:
             self.state = np.array([s, s_dot, theta, theta_dot - 0.25])
 
-    def x(self, s):
-        return s
+    def x_dot_dot(self, force, theta, theta_dot, theta_dot_dot):
+        temp = (force + self.pole_mass_length * theta_dot * theta_dot * np.sin(theta)) / self.total_mass
+        return temp - self.pole_mass_length * theta_dot_dot * np.cos(theta) / self.total_mass
 
-    def x_dot(self, s):
-        return 1
-
-    def x_dot_dot(self, s):
-        return 0
-
-    def y(self, s):
-        return self.track_height
-
-    def y_dot(self, s):
-        return 0.0
-
-    def y_dot_dot(self, s):
-        return 0.0
-
-    def phi(self, t):
-        return np.arctan(self.y_dot(t))
-
-    def s_dot_dot(self, F):
-        s, s_dot, theta, theta_dot = self.state
-        return (-2 * F +
-                self.y_dot(s) * (
-                        -(self.gravity * (self.mass_pole + 2 * self.mass_cart + self.mass_pole * np.cos(2 * theta)))
-                        - 2 * self.pole_length * self.mass_pole * np.cos(theta) * theta_dot ** 2
-                        + s_dot ** 2 * (self.mass_pole * np.sin(2 * theta) * self.x_dot_dot(s)
-                                        + (self.mass_pole + 2 * self.mass_cart
-                                           + self.mass_pole * np.cos(2 * theta)) * self.y_dot_dot(s)))
-                + self.x_dot(s) * (-(self.gravity * self.mass_pole * np.sin(2 * theta))
-                                   - 2 * self.pole_length * self.mass_pole * np.sin(theta) * theta_dot ** 2
-                                   + s_dot ** 2 * ((self.mass_pole + 2 * self.mass_cart
-                                                    - self.mass_pole * np.cos(2 * theta)) * self.x_dot_dot(s)
-                                                   + self.mass_pole * np.sin(2 * theta) * self.y_dot_dot(s)))) / \
-               ((-self.mass_pole - 2 * self.mass_cart + self.mass_pole * np.cos(2 * theta)) * self.x_dot(s) ** 2
-                - 2 * self.mass_pole * np.sin(2 * theta) * self.x_dot(s) * self.y_dot(s)
-                - (self.mass_pole + 2 * self.mass_cart + self.mass_pole * np.cos(2 * theta)) * self.y_dot(s) ** 2)
-
-    def theta_dot_dot(self, F):
-        s, s_dot, theta, theta_dot = self.state
-        return (F * (np.cos(theta) * self.x_dot(s) - np.sin(theta) * self.y_dot(s)) +
-                (np.sin(theta) * self.x_dot(s) + np.cos(theta) * self.y_dot(s)) *
-                (self.y_dot(s) * (-(self.pole_length * self.mass_pole * np.sin(theta) * theta_dot ** 2)
-                                  + (self.mass_pole + self.mass_cart) * s_dot ** 2 * self.x_dot_dot(s))
-                 + self.x_dot(s) * (self.pole_length * self.mass_pole * np.cos(theta) * theta_dot ** 2
-                                    + (self.mass_pole + self.mass_cart) * (
-                                            self.gravity - s_dot ** 2 * self.y_dot_dot(s))))) / \
-               (self.pole_length * (
-                       (-self.mass_pole - self.mass_cart + self.mass_pole * np.cos(theta) ** 2) * self.x_dot(s) ** 2
-                       - self.mass_pole * np.sin(2 * theta) * self.x_dot(s) * self.y_dot(s)
-                       - ((self.mass_pole + 2 * self.mass_cart
-                           + self.mass_pole * np.cos(2 * theta)) * self.y_dot(s) ** 2) / 2.))
+    def theta_dot_dot(self, force, theta, theta_dot):
+        temp = (force + self.pole_mass_length * theta_dot * theta_dot * np.sin(theta)) / self.total_mass
+        return (self.gravity * np.sin(theta) - np.cos(theta)* temp) / (self.length * (4.0/3.0 - self.mass_pole * np.cos(theta) * np.cos(theta) / self.total_mass))
 
     def pole_top_coordinates(self, screen_coordinates=True):
-        s, s_dot, theta, theta_dot = self.state
-        x = self.x(s)
+        x, x_dot, theta, theta_dot = self.state
         if screen_coordinates:
             return (x * self.scale + self.screen_width_pixels / 2 +
                     self.pole_length_pixels * np.sin(theta),
@@ -220,8 +173,7 @@ class CartPoleObstacleEnv(gym.Env):
                     self.pole_length * np.cos(theta))
 
     def pole_bottom_coordinates(self, screen_coordinates=True):
-        s, s_dot, theta, theta_dot = self.state
-        x = self.x(s)
+        x, x_dot, theta, theta_dot = self.state
         if screen_coordinates:
             return x * self.scale + self.screen_width_pixels / 2, \
                    self.pole_bottom_y_pixels
@@ -248,7 +200,7 @@ class CartPoleObstacleEnv(gym.Env):
 
     def new_state(self, action):
 
-        s, s_dot, theta, theta_dot = self.state
+        x, x_dot, theta, theta_dot = self.state
 
         if action in [-1, -2]:
             force = 10 * self.force_mag \
@@ -258,33 +210,36 @@ class CartPoleObstacleEnv(gym.Env):
 
         if self.de_solver == 'euler':
 
-            s_dot_dot = self.s_dot_dot(force)
-            theta_dot_dot = self.theta_dot_dot(force)
+            theta_dot_dot = self.theta_dot_dot(force, theta, theta_dot)
+            x_dot_dot = self.x_dot_dot(force, theta, theta_dot, theta_dot_dot)
 
-            s += self.tau * s_dot
-            s_dot += self.tau * s_dot_dot
+            x += self.tau * x_dot
+            x_dot += self.tau * x_dot_dot
             theta += self.tau * theta_dot
             theta_dot += self.tau * theta_dot_dot
 
         elif self.de_solver == 'scipy':
-            def ds(z, t, force=0.0):
-                self.s_dot, self.s = z
-                return np.array((self.s_dot_dot(force), z[0]))
+            def dx(z, t, force=0.0):
+                self.x_dot, self.x = z
+                return np.array((self.x_dot_dot(
+                    force, theta, theta_dot, theta_dot_dot), z[0]))
 
             def dtheta(z, t, force=0.0):
                 self.theta_dot, self.theta = z
-                return np.array((self.theta_dot_dot(force), z[0]))
+                return np.array((self.theta_dot_dot(
+                    force, theta, theta_dot), z[0]))
 
             t = np.linspace(0, self.tau, num=2)
 
-            s_dot_tmp, s_tmp = odeint(ds, np.array([s_dot, s]), t,
-                                      args=(force,)).T
             theta_dot_tmp, theta_tmp = odeint(dtheta,
                                               np.array([theta_dot, theta]),
                                               t, args=(force,)).T
 
-            s_dot = s_dot_tmp[-1]
-            s = s_tmp[-1]
+            x_dot_tmp, x_tmp = odeint(dx, np.array([x_dot, x]), t,
+                                      args=(force,)).T
+
+            x_dot = x_dot_tmp[-1]
+            x = x_tmp[-1]
 
             theta_dot = theta_dot_tmp[-1]
             theta = theta_tmp[-1]
@@ -294,28 +249,27 @@ class CartPoleObstacleEnv(gym.Env):
         elif theta > pi:
             theta -= 2 * pi
 
-        return np.array([s, s_dot, theta, theta_dot])
+        return np.array([x, x_dot, theta, theta_dot])
 
     def reward(self, failed):
-        s, s_dot, theta, theta_dot = self.state
-        x = self.x(s)
+        x, x_dot, theta, theta_dot = self.state
         if failed:
+            # return -2 * (self.max_episode_steps - self.episode_step)
             # return -2 * (self.max_episode_steps - self.episode_step) / \
             #        (2 * self.max_episode_steps)
             return -0.5
         else:
             return 0 if np.abs(x - self.goal_position) < self.goal_margin \
                 else -1 / (2 * self.max_episode_steps)
+            # return 0 if np.abs(x - self.goal_position) < self.goal_margin \
+            #     else -1
 
     def step(self, action):
         assert self.action_space.contains(action), \
             "%r (%s) invalid" % (action, type(action))
 
-        s, s_dot, theta, theta_dot = self.new_state(action)
-        self.state = (s, s_dot, theta, theta_dot)
-
-        x, x_dot = self.x(s), self.x_dot(s)
-
+        x, x_dot, theta, theta_dot = self.new_state(action)
+        self.state = (x, x_dot, theta, theta_dot)
         failed = not self.x_min <= x <= self.x_max or \
                  not self.theta_min <= theta <= self.theta_max or \
                  self.pole_touches_obstacle() or \
@@ -323,7 +277,7 @@ class CartPoleObstacleEnv(gym.Env):
 
         reward = self.reward(failed)
 
-        if np.abs(s - self.goal_position) < self.goal_margin:
+        if np.abs(x - self.goal_position) < self.goal_margin:
             self.times_at_goal += 1
         else:
             self.times_at_goal = 0

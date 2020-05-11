@@ -24,9 +24,9 @@ class CartPoleMountainEnv(gym.Env):
         'video.frames_per_second': 100
     }
 
-    def __init__(self, mode='train', de_solver='scipy', seed=5436773):
+    def __init__(self, mode='train', de_solver='scipy'):
 
-        self.seed(seed)
+        self.seed()
 
         self.world_width, self.world_height = 2 * pi, pi
 
