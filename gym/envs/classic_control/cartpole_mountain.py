@@ -99,7 +99,11 @@ class CartPoleMountainEnv(gym.Env):
 
         self.min_goal, self.max_goal = \
             self.bottom + self.bottom_width / 2 + self.slope_length, self.x_max
-        self.goal_stable_duration = 150
+        self.goal_stable_duration = 10
+        self.goal_x_margin = pi / 3
+        self.goal_x_dot_margin = 1.0
+        self.goal_theta_margin = 0.05
+        self.goal_theta_dot_margin = 1.0
         self.times_at_goal = 0
 
         self.R, self.r, self.d = 1.0, 0.5, 0.25
@@ -319,12 +323,21 @@ class CartPoleMountainEnv(gym.Env):
         s, s_dot, theta, theta_dot = self.state
         x = self.x(s)
         if failed:
-            return -2 * (self.max_episode_steps - self.episode_step) / \
-                   (2 * self.max_episode_steps)
-            # return -0.5
+            # return -2 * (self.max_episode_steps - self.episode_step) / \
+            #        (2 * self.max_episode_steps)
+            return -0.5
         else:
             return 0 if self.min_goal <= x <= self.max_goal \
                 else -1 / (2 * self.max_episode_steps)
+
+    def in_goal_state(self):
+        s, s_dot, theta, theta_dot = self.state
+        x, x_dot = self.x(s), self.x_dot(s)
+
+        return self.min_goal <= x <= self.max_goal and \
+               np.abs(x_dot) <= self.goal_x_dot_margin and \
+               np.abs(theta) <= self.goal_theta_margin and \
+               np.abs(theta_dot) <= self.goal_theta_dot_margin
 
     def step(self, action):
         assert self.action_space.contains(action), \
@@ -341,7 +354,7 @@ class CartPoleMountainEnv(gym.Env):
 
         reward = self.reward(failed)
 
-        if self.min_goal <= s <= self.max_goal:
+        if self.in_goal_state():
             self.times_at_goal += 1
         else:
             self.times_at_goal = 0
@@ -373,6 +386,7 @@ class CartPoleMountainEnv(gym.Env):
 
             self.track = rendering.make_polyline(
                 [(0, 0), *xys, (self.screen_width_pixels, 0)])
+            self.track.set_color(44/255, 160/255, 44/255)
             self.track.set_linewidth(5)
             self.viewer.add_geom(self.track)
 
@@ -382,6 +396,7 @@ class CartPoleMountainEnv(gym.Env):
                           self.cart_height_pixels / 2,
                           -self.cart_height_pixels / 2]
             cart = rendering.FilledPolygon([(l, b), (l, t), (r, t), (r, b)])
+            cart.set_color(96/255, 99/255, 106/255)
             self.cart_trans = rendering.Transform()
             cart.add_attr(rendering.Transform(
                 translation=(0, self.wheels_radius +
@@ -391,13 +406,13 @@ class CartPoleMountainEnv(gym.Env):
 
             # wheels
             front_wheel = rendering.make_circle(self.wheels_radius)
-            front_wheel.set_color(0.5, 0.5, 0.5)
+            front_wheel.set_color(65/255, 68/255, 81/255)
             front_wheel.add_attr(rendering.Transform(
                 translation=(self.cart_width_pixels / 4, self.wheels_radius)))
             front_wheel.add_attr(self.cart_trans)
             self.viewer.add_geom(front_wheel)
             back_wheel = rendering.make_circle(self.wheels_radius)
-            back_wheel.set_color(0.5, 0.5, 0.5)
+            back_wheel.set_color(65/255, 68/255, 81/255)
             back_wheel.add_attr(rendering.Transform(
                 translation=(-self.cart_width_pixels / 4, self.wheels_radius)))
             back_wheel.add_attr(self.cart_trans)
@@ -409,7 +424,7 @@ class CartPoleMountainEnv(gym.Env):
                 (0, self.pole_length_pixels)]
             ).buffer(self.pole_width_pixels / 2)
             pole = rendering.make_polygon(list(pole_line.exterior.coords))
-            pole.set_color(0.8, 0.6, 0.4)
+            pole.set_color(168/255, 120/255, 110/255)
             self.pole_trans = rendering.Transform(
                 translation=(0, self.cart_height_pixels + self.wheels_radius))
             pole.add_attr(self.pole_trans)
@@ -420,7 +435,7 @@ class CartPoleMountainEnv(gym.Env):
             self.axle = rendering.make_circle(self.pole_width_pixels / 2)
             self.axle.add_attr(self.pole_trans)
             self.axle.add_attr(self.cart_trans)
-            self.axle.set_color(0.5, 0.5, 0.8)
+            self.axle.set_color(127/255, 127/255, 127/255)
             self.viewer.add_geom(self.axle)
 
             # flag
@@ -434,7 +449,7 @@ class CartPoleMountainEnv(gym.Env):
                 (flag_x, flag_top_y),
                 (flag_x, flag_top_y - 25),
                 (flag_x + 50, flag_top_y - 15)])
-            flag.set_color(0.8, 0.8, 0)
+            flag.set_color(255/255, 221/255, 113/255)
             self.viewer.add_geom(flag)
 
             # goal margin
@@ -455,8 +470,8 @@ class CartPoleMountainEnv(gym.Env):
                 (right_stone_x, right_stone_bottom_y),
                 (right_stone_x - stone_width / 2,
                  right_stone_bottom_y + stone_height)])
-            left_stone.set_color(0, 255, 0)
-            right_stone.set_color(0, 255, 0)
+            left_stone.set_color(237/255, 102/255, 93/255)
+            right_stone.set_color(237/255, 102/255, 93/255)
             self.viewer.add_geom(left_stone)
             self.viewer.add_geom(right_stone)
 

@@ -28,7 +28,7 @@ class CartPoleObstacleEnv(gym.Env):
 
         self.seed()
 
-        self.world_width, self.world_height = 3 * pi, pi
+        self.world_width, self.world_height = 4 * pi, pi
 
         self.gravity = -g
         self.mass_cart = 1.0
@@ -58,7 +58,7 @@ class CartPoleObstacleEnv(gym.Env):
         self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(low, high, dtype=np.float64)
 
-        self.screen_width_pixels, self.screen_height_pixels = 1800, 600
+        self.screen_width_pixels, self.screen_height_pixels = 1600, 400
         self.scale = self.screen_width_pixels / self.world_width
 
         self.cart_width = 0.4
@@ -88,7 +88,7 @@ class CartPoleObstacleEnv(gym.Env):
         self.pole_bottom_y_pixels = self.cart_top_y_pixels
         self.pole_bottom_y = self.pole_bottom_y_pixels / self.scale
 
-        self.obstacle_location = self.x_min + self.world_width / 3
+        self.obstacle_location = self.x_min + pi
         self.obstacle_location_pixels = \
             (self.obstacle_location - self.x_min) * self.scale
         self.obstacle_width = 0.04
@@ -106,11 +106,18 @@ class CartPoleObstacleEnv(gym.Env):
         self.episode_step = 0
         self.max_episode_steps = 1000
 
-        self.goal_margin = pi / 3
-        self.goal_stable_duration = 200
+        self.goal_stable_duration = 10
+        self.goal_x_margin = pi / 3
+        self.goal_x_dot_margin = 1.0
+        self.goal_theta_margin = 0.05
+        self.goal_theta_dot_margin = 1.0
         self.times_at_goal = 0
 
-    def reset(self, epoch=-1, num_epochs=-1):
+    def reset(self):
+        # self.state = np.random.uniform(
+        #     low=(self.starting_position, -0.05, -pi / 15, -0.05),
+        #     high=(self.starting_position, 0.05, pi / 15, 0.05),
+        #     size=(4,))
         if self.mode == 'train':
             self.state = np.random.uniform(
                 low=(self.starting_position - pi / 4,
@@ -296,10 +303,19 @@ class CartPoleObstacleEnv(gym.Env):
             #        (2 * self.max_episode_steps)
             return -0.5
         else:
-            return 0 if np.abs(x - self.goal_position) < self.goal_margin \
+            return 0 if np.abs(x - self.goal_position) < self.goal_x_margin \
                 else -1 / (2 * self.max_episode_steps)
             # return 0 if np.abs(x - self.goal_position) < self.goal_margin \
             #     else -1
+
+    def in_goal_state(self):
+        s, s_dot, theta, theta_dot = self.state
+        x, x_dot = self.x(s), self.x_dot(s)
+
+        return np.abs(x - self.goal_position) <= self.goal_x_margin and \
+               np.abs(x_dot) <= self.goal_x_dot_margin and \
+               np.abs(theta) <= self.goal_theta_margin and \
+               np.abs(theta_dot) <= self.goal_theta_dot_margin
 
     def step(self, action):
         assert self.action_space.contains(action), \
@@ -317,7 +333,7 @@ class CartPoleObstacleEnv(gym.Env):
 
         reward = self.reward(failed)
 
-        if np.abs(s - self.goal_position) < self.goal_margin:
+        if self.in_goal_state():
             self.times_at_goal += 1
         else:
             self.times_at_goal = 0
@@ -333,7 +349,7 @@ class CartPoleObstacleEnv(gym.Env):
 
         return np.array(self.state), reward, done, info
 
-    def set_obstacle_height(self, below_pole_top=0.025):
+    def set_obstacle_height(self, below_pole_top=0.15):
 
         pole_top = self.cart_top_y + self.pole_length
 
@@ -360,29 +376,29 @@ class CartPoleObstacleEnv(gym.Env):
                 (0, self.track_height_pixels),
                 (self.screen_width_pixels, self.track_height_pixels),
                 (self.screen_width_pixels, 0)])
-            self.track.set_color(0, 255, 0)
+            self.track.set_color(44/255, 160/255, 44/255)
             self.viewer.add_geom(self.track)
 
             # flag
             flag_x = (self.goal_position - self.x_min) * self.scale
             flag_bottom_y = self.track_height_pixels
-            flag_top_y = flag_bottom_y + 200.0
+            flag_top_y = flag_bottom_y + 128
             flagpole = rendering.Line((flag_x, flag_bottom_y),
                                       (flag_x, flag_top_y))
             self.viewer.add_geom(flagpole)
             flag = rendering.FilledPolygon([(flag_x, flag_top_y),
-                                            (flag_x, flag_top_y - 30),
-                                            (flag_x + 50, flag_top_y - 15)])
-            flag.set_color(0.8, 0.8, 0)
+                                            (flag_x, flag_top_y - 16),
+                                            (flag_x + 32, flag_top_y - 8)])
+            flag.set_color(255/255, 221/255, 113/255)
             self.viewer.add_geom(flag)
 
             # goal margin
-            stone_width, stone_height = 15, 15
+            stone_width, stone_height = 8, 8
             stone_bottom_y = self.track_height_pixels
             left_stone_x = (self.goal_position -
-                            self.goal_margin - self.x_min) * self.scale
+                            self.goal_x_margin - self.x_min) * self.scale
             right_stone_x = (self.goal_position +
-                             self.goal_margin - self.x_min) * self.scale
+                             self.goal_x_margin - self.x_min) * self.scale
             left_stone = rendering.FilledPolygon([
                 (left_stone_x, stone_bottom_y),
                 (left_stone_x + stone_width, stone_bottom_y),
@@ -393,8 +409,8 @@ class CartPoleObstacleEnv(gym.Env):
                 (right_stone_x, stone_bottom_y),
                 (right_stone_x - stone_width / 2,
                  stone_bottom_y + stone_height)])
-            left_stone.set_color(0, 255, 0)
-            right_stone.set_color(0, 255, 0)
+            left_stone.set_color(237/255, 102/255, 93/255)
+            right_stone.set_color(237/255, 102/255, 93/255)
             self.viewer.add_geom(left_stone)
             self.viewer.add_geom(right_stone)
 
@@ -404,20 +420,21 @@ class CartPoleObstacleEnv(gym.Env):
                           self.cart_height_pixels / 2,
                           -self.cart_height_pixels / 2]
             cart = rendering.FilledPolygon([(l, b), (l, t), (r, t), (r, b)])
+            cart.set_color(96/255, 99/255, 106/255)
             self.cart_trans = rendering.Transform()
             cart.add_attr(self.cart_trans)
             self.viewer.add_geom(cart)
 
             # wheels
             front_wheel = rendering.make_circle(self.wheels_radius)
-            front_wheel.set_color(0.5, 0.5, 0.5)
+            front_wheel.set_color(65/255, 68/255, 81/255)
             front_wheel.add_attr(rendering.Transform(
                 translation=(self.cart_width_pixels / 4,
                              -self.cart_height_pixels / 2)))
             front_wheel.add_attr(self.cart_trans)
             self.viewer.add_geom(front_wheel)
             back_wheel = rendering.make_circle(self.wheels_radius)
-            back_wheel.set_color(0.5, 0.5, 0.5)
+            back_wheel.set_color(65/255, 68/255, 81/255)
             back_wheel.add_attr(rendering.Transform(
                 translation=(-self.cart_width_pixels / 4,
                              -self.cart_height_pixels / 2)))
@@ -430,7 +447,7 @@ class CartPoleObstacleEnv(gym.Env):
                 (0, self.pole_length_pixels)]
             ).buffer(self.pole_width_pixels / 2)
             pole = rendering.make_polygon(list(pole_line.exterior.coords))
-            pole.set_color(0.8, 0.6, 0.4)
+            pole.set_color(168/255, 120/255, 110/255)
             self.pole_trans = rendering.Transform(
                 translation=(0, self.cart_height_pixels / 2))
             pole.add_attr(self.pole_trans)
@@ -441,20 +458,20 @@ class CartPoleObstacleEnv(gym.Env):
             self.axle = rendering.make_circle(self.pole_width_pixels / 2)
             self.axle.add_attr(self.pole_trans)
             self.axle.add_attr(self.cart_trans)
-            self.axle.set_color(0.5, 0.5, 0.8)
+            self.axle.set_color(127/255, 127/255, 127/255)
             self.viewer.add_geom(self.axle)
 
             # obstacle
             l, r, t, b = self.obstacle_coordinate_pixels
             obstacle = rendering.FilledPolygon(
                 [(l, b), (l, t), (r, t), (r, b)])
-            obstacle.set_color(255, 0, 0)
+            obstacle.set_color(214/255, 39/255, 40/255)
             self.viewer.add_geom(obstacle)
 
         if self.intersection_polygon is not None:
             intersection_polygon = rendering.FilledPolygon(
                 list(self.intersection_polygon.exterior.coords))
-            intersection_polygon.set_color(0.75, 0.75, 0.75)
+            intersection_polygon.set_color(199/255, 199/255, 199/255)
             self.viewer.add_onetime(intersection_polygon)
 
         self.cart_trans.set_translation(
