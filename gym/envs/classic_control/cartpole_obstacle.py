@@ -26,9 +26,9 @@ class CartPoleObstacleEnv(gym.Env):
 
     def __init__(self, mode='train', de_solver='scipy'):
 
-        self.seed()
+        self.seed(3552466)
 
-        self.world_width, self.world_height = 4 * pi, pi
+        self.world_width, self.world_height = 5 * pi, pi
 
         self.gravity = -g
         self.mass_cart = 1.0
@@ -58,7 +58,7 @@ class CartPoleObstacleEnv(gym.Env):
         self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(low, high, dtype=np.float64)
 
-        self.screen_width_pixels, self.screen_height_pixels = 1600, 400
+        self.screen_width_pixels, self.screen_height_pixels = 2000, 400
         self.scale = self.screen_width_pixels / self.world_width
 
         self.cart_width = 0.4
@@ -349,7 +349,7 @@ class CartPoleObstacleEnv(gym.Env):
 
         return np.array(self.state), reward, done, info
 
-    def set_obstacle_height(self, below_pole_top=0.15):
+    def set_obstacle_height(self, below_pole_top=0.10):
 
         pole_top = self.cart_top_y + self.pole_length
 
@@ -379,7 +379,21 @@ class CartPoleObstacleEnv(gym.Env):
             self.track.set_color(44/255, 160/255, 44/255)
             self.viewer.add_geom(self.track)
 
-            # flag
+            # start flag
+            flag_x = (self.starting_position - self.x_min) * self.scale
+            flag_bottom_y = self.y(self.starting_position) * self.scale
+            flag_top_y = flag_bottom_y + 128
+            flagpole = rendering.Line((flag_x, flag_bottom_y),
+                                      (flag_x, flag_top_y))
+            self.viewer.add_geom(flagpole)
+            flag = rendering.FilledPolygon([
+                (flag_x, flag_top_y),
+                (flag_x, flag_top_y - 24),
+                (flag_x + 42, flag_top_y - 12)])
+            flag.set_color(105/255, 183/255, 100/255)
+            self.viewer.add_geom(flag)
+
+            # finish flag
             flag_x = (self.goal_position - self.x_min) * self.scale
             flag_bottom_y = self.track_height_pixels
             flag_top_y = flag_bottom_y + 128
@@ -387,8 +401,8 @@ class CartPoleObstacleEnv(gym.Env):
                                       (flag_x, flag_top_y))
             self.viewer.add_geom(flagpole)
             flag = rendering.FilledPolygon([(flag_x, flag_top_y),
-                                            (flag_x, flag_top_y - 16),
-                                            (flag_x + 32, flag_top_y - 8)])
+                                            (flag_x, flag_top_y - 24),
+                                            (flag_x + 42, flag_top_y - 12)])
             flag.set_color(255/255, 221/255, 113/255)
             self.viewer.add_geom(flag)
 
@@ -413,6 +427,30 @@ class CartPoleObstacleEnv(gym.Env):
             right_stone.set_color(237/255, 102/255, 93/255)
             self.viewer.add_geom(left_stone)
             self.viewer.add_geom(right_stone)
+
+            for ii in range(0, 10 + 1):
+                marker = rendering.FilledPolygon([
+                    (ii * pi / 2 * self.scale - stone_width / 4, 0),
+                    (ii * pi / 2 * self.scale - stone_width / 4,
+                     stone_height / 2),
+                    (ii * pi / 2 * self.scale + stone_width / 4,
+                     stone_height / 2),
+                    (ii * pi / 2 * self.scale + stone_width / 4, 0)])
+                marker.set_color(242/255, 108/255, 100/255)
+                self.viewer.add_geom(marker)
+
+            marker = rendering.FilledPolygon([
+                ((self.starting_position - self.x_min) * self.scale -
+                 stone_width / 4, 0),
+                ((self.starting_position - self.x_min) * self.scale -
+                 stone_width / 4, stone_height / 2),
+                ((self.starting_position - self.x_min) * self.scale +
+                 stone_width / 4,
+                 stone_height / 2),
+                ((self.starting_position - self.x_min) * self.scale +
+                 stone_width / 4, 0)])
+            marker.set_color(255/255, 193/255, 86/255)
+            self.viewer.add_geom(marker)
 
             # cart
             l, r, t, b = [-self.cart_width_pixels / 2,
