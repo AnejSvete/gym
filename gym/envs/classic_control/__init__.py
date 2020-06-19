@@ -1,6 +1,5 @@
 from gym.envs.classic_control.cartpole import CartPoleEnv
 from gym.envs.classic_control.cartpole_obstacle import CartPoleObstacleEnv
-from gym.envs.classic_control.cartpole_obstacle_simple_dynamics import CartPoleSimpleObstacleEnv
 from gym.envs.classic_control.cartpole_mountain import CartPoleMountainEnv
 from gym.envs.classic_control.mountain_car import MountainCarEnv
 from gym.envs.classic_control.continuous_mountain_car import Continuous_MountainCarEnv

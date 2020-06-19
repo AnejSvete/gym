@@ -2,6 +2,7 @@ import gym
 from gym import spaces
 from gym.utils import seeding
 from gym.envs.classic_control import rendering
+from gym.envs.classic_control.cartpole_extension import CartPoleExtensionEnv
 
 import numpy as np
 from scipy.constants import g, pi
@@ -18,15 +19,15 @@ STOP_CART = 4
 STOP_POLE = 5
 
 
-class CartPoleMountainEnv(gym.Env):
+class CartPoleMountainEnv(CartPoleExtensionEnv):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
         'video.frames_per_second': 100
     }
 
-    def __init__(self, mode='train', de_solver='scipy'):
+    def __init__(self, mode='train', de_solver='scipy', seed=371875):
 
-        self.seed()
+        self.seed(seed)
 
         self.world_width, self.world_height = 4 * pi, 2 * pi
 
@@ -57,6 +58,7 @@ class CartPoleMountainEnv(gym.Env):
             np.finfo(np.float32).max])
 
         self.action_space = spaces.Discrete(3)
+        self.action_space.seed(seed)
         # self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(low, high, dtype=np.float64)
 
@@ -133,26 +135,6 @@ class CartPoleMountainEnv(gym.Env):
         self.episode_step = 0
         return np.array(self.state)
 
-    def seed(self, seed=None):
-        np.random.seed(seed)
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
-    def manual_control(self, cmd):
-        s, s_dot, theta, theta_dot = self.state
-        if cmd == STOP_CART:
-            self.state = np.array([s, 0, theta, theta_dot])
-        elif cmd == PUSH_CART_RIGHT:
-            self.state = self.new_state(action=-1)
-        elif cmd == PUSH_CART_LEFT:
-            self.state = self.new_state(action=-2)
-        elif cmd == STOP_POLE:
-            self.state = np.array([s, s_dot, theta, 0])
-        elif cmd == PUSH_POLE_RIGHT:
-            self.state = np.array([s, s_dot, theta, theta_dot + 0.25])
-        elif cmd == PUSH_POLE_LEFT:
-            self.state = np.array([s, s_dot, theta, theta_dot - 0.25])
-
     def x(self, s):
         return s
 
@@ -198,90 +180,6 @@ class CartPoleMountainEnv(gym.Env):
     def phi(self, t):
         return np.arctan(self.y_dot(t))
 
-    def s_dot_dot(self, F):
-        s, s_dot, theta, theta_dot = self.state
-        return (-2 * F +
-                self.y_dot(s) * (
-                        -(self.gravity * (self.mass_pole + 2 * self.mass_cart + self.mass_pole * np.cos(2 * theta)))
-                        - 2 * self.pole_length * self.mass_pole * np.cos(theta) * theta_dot ** 2
-                        + s_dot ** 2 * (self.mass_pole * np.sin(2 * theta) * self.x_dot_dot(s)
-                                        + (self.mass_pole + 2 * self.mass_cart
-                                           + self.mass_pole * np.cos(2 * theta)) * self.y_dot_dot(s)))
-                + self.x_dot(s) * (-(self.gravity * self.mass_pole * np.sin(2 * theta))
-                                   - 2 * self.pole_length * self.mass_pole * np.sin(theta) * theta_dot ** 2
-                                   + s_dot ** 2 * ((self.mass_pole + 2 * self.mass_cart
-                                                    - self.mass_pole * np.cos(2 * theta)) * self.x_dot_dot(s)
-                                                   + self.mass_pole * np.sin(2 * theta) * self.y_dot_dot(s)))) / \
-               ((-self.mass_pole - 2 * self.mass_cart + self.mass_pole * np.cos(2 * theta)) * self.x_dot(s) ** 2
-                - 2 * self.mass_pole * np.sin(2 * theta) * self.x_dot(s) * self.y_dot(s)
-                - (self.mass_pole + 2 * self.mass_cart + self.mass_pole * np.cos(2 * theta)) * self.y_dot(s) ** 2)
-
-    def theta_dot_dot(self, F):
-        s, s_dot, theta, theta_dot = self.state
-        return (F * (np.cos(theta) * self.x_dot(s) - np.sin(theta) * self.y_dot(s)) +
-                (np.sin(theta) * self.x_dot(s) + np.cos(theta) * self.y_dot(s)) *
-                (self.y_dot(s) * (-(self.pole_length * self.mass_pole * np.sin(theta) * theta_dot ** 2)
-                                  + (self.mass_pole + self.mass_cart) * s_dot ** 2 * self.x_dot_dot(s))
-                 + self.x_dot(s) * (self.pole_length * self.mass_pole * np.cos(theta) * theta_dot ** 2
-                                    + (self.mass_pole + self.mass_cart) * (
-                                            self.gravity - s_dot ** 2 * self.y_dot_dot(s))))) / \
-               (self.pole_length * (
-                       (-self.mass_pole - self.mass_cart + self.mass_pole * np.cos(theta) ** 2) * self.x_dot(s) ** 2
-                       - self.mass_pole * np.sin(2 * theta) * self.x_dot(s) * self.y_dot(s)
-                       - ((self.mass_pole + 2 * self.mass_cart
-                           + self.mass_pole * np.cos(2 * theta)) * self.y_dot(s) ** 2) / 2.))
-
-    def new_state(self, action):
-
-        s, s_dot, theta, theta_dot = self.state
-
-        if action in [-1, -2]:
-            force = 10 * self.force_mag \
-                if action == -1 else -10 * self.force_mag
-        else:
-            # force = self.force_mag if action == 1 else -self.force_mag
-            force = (action - 1) * self.force_mag
-
-        if self.de_solver == 'euler':
-
-            s_dot_dot = self.s_dot_dot(force)[0]
-            theta_dot_dot = self.theta_dot_dot(force)[0]
-
-            s += self.tau * s_dot
-            s_dot += self.tau * s_dot_dot
-            theta += self.tau * theta_dot
-            theta_dot += self.tau * theta_dot_dot
-
-        elif self.de_solver == 'scipy':
-            def ds(z, t, force=0.0):
-                self.s_dot, self.s = z
-                return np.array((self.s_dot_dot(force)[0], z[0]))
-
-            def dtheta(z, t, force=0.0):
-                self.theta_dot, self.theta = z
-                return np.array((self.theta_dot_dot(force)[0], z[0]))
-
-            t = np.linspace(0, self.tau, num=2)
-
-            s_dot_tmp, s_tmp = odeint(ds, np.array([s_dot, s]),
-                                      t, args=(force,)).T
-            theta_dot_tmp, theta_tmp = odeint(dtheta,
-                                              np.array([theta_dot, theta]),
-                                              t, args=(force,)).T
-
-            s_dot = s_dot_tmp[-1]
-            s = s_tmp[-1]
-
-            theta_dot = theta_dot_tmp[-1]
-            theta = theta_tmp[-1]
-
-        if theta < -pi:
-            theta += 2 * pi
-        elif theta > pi:
-            theta -= 2 * pi
-
-        return np.array([s, s_dot, theta, theta_dot])
-
     def reward(self, failed):
         s, s_dot, theta, theta_dot = self.state
         x = self.x(s)
@@ -302,36 +200,10 @@ class CartPoleMountainEnv(gym.Env):
                np.abs(theta) <= self.goal_theta_margin and \
                np.abs(theta_dot) <= self.goal_theta_dot_margin
 
-    def step(self, action):
-        assert self.action_space.contains(action), \
-            "%r (%s) invalid" % (action, type(action))
-
-        s, s_dot, theta, theta_dot = self.new_state(action)
-        self.state = (s, s_dot, theta, theta_dot)
-
-        x, x_dot = self.x(s), self.x_dot(s)
-
-        failed = not self.x_min <= x <= self.x_max or \
+    def has_failed(self, x, theta):
+        return not self.x_min <= x <= self.x_max or \
             not self.theta_min <= theta <= self.theta_max or \
             self.episode_step >= self.max_episode_steps - 1
-
-        reward = self.reward(failed)
-
-        if self.in_goal_state():
-            self.times_at_goal += 1
-        else:
-            self.times_at_goal = 0
-
-        successful = self.times_at_goal >= self.goal_stable_duration
-
-        done = failed or successful
-
-        self.episode_step += 1
-
-        info = {'success': successful,
-                'time_limit': self.episode_step >= self.max_episode_steps}
-
-        return np.array(self.state), reward, done, info
 
     def render(self, mode='human'):
 
@@ -484,7 +356,3 @@ class CartPoleMountainEnv(gym.Env):
 
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 
-    def close(self):
-        if self.viewer:
-            self.viewer.close()
-            self.viewer = None
