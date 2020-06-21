@@ -27,8 +27,6 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
 
     def __init__(self, mode='train', de_solver='scipy', seed=371875):
 
-        self.seed(seed)
-
         self.world_width, self.world_height = 4 * pi, 2 * pi
 
         self.mode = mode
@@ -50,17 +48,24 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
             self.x_min * 2,
             -np.finfo(np.float32).max,
             self.theta_min * 2,
+            -np.finfo(np.float32).max,
+            0.0,
+            -np.finfo(np.float32).max,
             -np.finfo(np.float32).max])
         high = np.array([
             self.x_max * 2,
             np.finfo(np.float32).max,
             self.theta_max * 2,
+            np.finfo(np.float32).max,
+            self.world_height, 
+            np.finfo(np.float32).max, 
             np.finfo(np.float32).max])
 
         self.action_space = spaces.Discrete(3)
-        self.action_space.seed(seed)
         # self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(low, high, dtype=np.float64)
+
+        self.seed(seed)
 
         self.screen_width_pixels, self.screen_height_pixels = 1600, 800
         self.scale = self.screen_width_pixels / self.world_width
@@ -80,8 +85,9 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
 
         # Environment parameters:
         self.initial_height = self.world_height / 3
-        self.height = 0.85
-        self.steepness = 1.75
+        # self.height = 1.15
+        self.height = 0.75
+        self.steepness = 1.0
 
         self.slope_length = pi / self.steepness
 
@@ -102,38 +108,35 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
         self.min_goal, self.max_goal = \
             self.bottom + self.bottom_width / 2 + self.slope_length, self.x_max
         self.goal_stable_duration = 10
-        self.goal_x_margin = pi / 3
         self.goal_x_dot_margin = 1.0
         self.goal_theta_margin = 0.05
         self.goal_theta_dot_margin = 1.0
         self.times_at_goal = 0
 
-        self.R, self.r, self.d = 1.0, 0.5, 0.25
+        self.R, self.r, self.d = 5.0 / 2, 3.0 / 2, 5.0 / 2
 
     def reset(self):
 
         # self.state = np.random.uniform(
-        #     low=(self.bottom - self.bottom_width / 2,
-        #          -0.05, -0.3, -0.05),
-        #     high=(self.bottom + self.bottom_width / 2,
-        #           0.05, 0.3, 0.05),
+        #     low=(self.bottom - self.bottom_width / 2, -0.05, -pi / 15, -0.05),
+        #     high=(self.bottom + self.bottom_width / 2, 0.05, pi / 15, 0.05),
         #     size=(4,))
 
         if self.mode == 'train':
             self.state = np.random.uniform(
-                low=(self.bottom - self.slope_length, -0.05, -pi / 12, -0.05),
-                high=(self.goal_position + pi / 2, 0.05, pi / 12, 0.05),
+                low=(self.bottom - self.slope_length, -0.05, -pi / 6, -0.05),
+                high=(self.goal_position + pi / 2, 0.05, pi / 6, 0.05),
                 size=(4,))
         else:
             self.state = np.random.uniform(
                 low=(self.bottom - self.bottom_width / 2,
-                     -0.05, -0.3, -0.05),
+                     -0.05, -pi / 15, -0.05),
                 high=(self.bottom + self.bottom_width / 2,
-                      0.05, 0.3, 0.05),
+                      0.05, pi / 15, 0.05),
                 size=(4,))
         self.times_at_goal = 0
         self.episode_step = 0
-        return np.array(self.state)
+        return self.obeservation()
 
     def x(self, s):
         return s
@@ -159,26 +162,73 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
         w = np.array(s)
         w_left, w_right = w[w <= self.bottom], w[w > self.bottom]
         y_left = self.height * self.steepness * np.cos(
-            self.steepness * (np.clip(w_left, self.bottom - self.bottom_width / 2 - self.slope_length,
-                                      self.bottom - self.bottom_width / 2) - (self.offset - self.bottom_width / 2)))
+            self.steepness * (w_left - (self.offset - self.bottom_width / 2)))
         y_right = self.height * self.steepness * np.cos(
-            self.steepness * (np.clip(w_right, self.bottom + self.bottom_width / 2,
-                                      self.bottom + self.bottom_width / 2 + self.slope_length) - (self.offset + self.bottom_width / 2)))
+            self.steepness * (w_right - (self.offset + self.bottom_width / 2)))
+        y_left[w_left <= self.bottom -
+               self.bottom_width / 2 - self.slope_length] = 0.0
+        y_left[w_left >= self.bottom - self.bottom_width / 2] = 0.0
+        y_right[w_right <= self.bottom + self.bottom_width / 2] = 0.0
+        y_right[w_right >= self.bottom +
+                self.bottom_width / 2 + self.slope_length] = 0.0
         return np.concatenate((y_left, y_right))
 
     def y_dot_dot(self, s):
         w = np.array(s)
         w_left, w_right = w[w <= self.bottom], w[w > self.bottom]
-        y_left = -self.height * self.steepness**2 * np.sin(
-            self.steepness * (np.clip(w_left, self.bottom - self.bottom_width / 2 - self.slope_length,
-                                      self.bottom - self.bottom_width / 2) - (self.offset - self.bottom_width / 2)))
-        y_right = -self.height * self.steepness**2 * np.sin(
-            self.steepness * (np.clip(w_right, self.bottom + self.bottom_width / 2,
-                                      self.bottom + self.bottom_width / 2 + self.slope_length) - (self.offset + self.bottom_width / 2)))
+        y_left = -self.height * self.steepness**2 * \
+            np.sin(self.steepness * (w_left - (self.offset - self.bottom_width / 2)))
+        y_right = -self.height * self.steepness**2 * \
+            np.sin(self.steepness * (w_right -
+                                     (self.offset + self.bottom_width / 2)))
+        y_left[w_left <= self.bottom -
+               self.bottom_width / 2 - self.slope_length] = 0.0
+        y_left[w_left >= self.bottom - self.bottom_width / 2] = 0.0
+        y_right[w_right <= self.bottom + self.bottom_width / 2] = 0.0
+        y_right[w_right >= self.bottom +
+                self.bottom_width / 2 + self.slope_length] = 0.0
         return np.concatenate((y_left, y_right))
 
-    def phi(self, t):
-        return np.arctan(self.y_dot(t))
+    """
+    def x(self, s):
+        return (self.R - self.r) * np.cos(s) + self.d * np.cos((self.R - self.r) / self.r * s)
+
+    def x_dot(self, s):
+        return -np.sin(s)
+
+    def x_dot_dot(self, s):
+        return -np.cos(s)
+
+    def y(self, s):
+        return (self.R - self.r) * np.cos(s) - self.d * np.sin((self.R - self.r) / self.r * s) + self.initial_height
+
+    def y_dot(self, s):
+        return np.cos(s)
+        
+    def y_dot_dot(self, s):
+        return -np.sin(s)
+
+    def x(self, s):
+        return np.cos(s)
+
+    def x_dot(self, s):
+        return -np.sin(s)
+
+    def x_dot_dot(self, s):
+        return -np.cos(s)
+
+    def y(self, s):
+        return np.sin(s) + self.initial_height
+
+    def y_dot(self, s):
+        return np.cos(s)
+        
+    def y_dot_dot(self, s):
+        return -np.sin(s)
+    """
+
+    def action_to_force(self, action):
+        return (action - 1) * self.force_mag
 
     def reward(self, failed):
         s, s_dot, theta, theta_dot = self.state
@@ -196,14 +246,19 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
         x, x_dot = self.x(s), self.x_dot(s)
 
         return self.min_goal <= x <= self.max_goal and \
-               np.abs(x_dot) <= self.goal_x_dot_margin and \
-               np.abs(theta) <= self.goal_theta_margin and \
-               np.abs(theta_dot) <= self.goal_theta_dot_margin
+            np.abs(x_dot) <= self.goal_x_dot_margin and \
+            np.abs(theta) <= self.goal_theta_margin and \
+            np.abs(theta_dot) <= self.goal_theta_dot_margin
 
     def has_failed(self, x, theta):
         return not self.x_min <= x <= self.x_max or \
             not self.theta_min <= theta <= self.theta_max or \
             self.episode_step >= self.max_episode_steps - 1
+
+    def obeservation(self):
+        s, s_dot, theta, theta_dot = self.state
+        return np.array([s, s_dot, theta, theta_dot,
+                         self.y(s)[0], self.y_dot(s)[0], self.y_dot_dot(s)[0]])
 
     def render(self, mode='human'):
 
@@ -215,18 +270,18 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
                                            self.screen_height_pixels)
 
             # track / ground
-            xs = np.linspace(self.x_min, self.x_max, 2000)
-            ys = np.array(self.y(xs))
+            ss = np.linspace(self.x_min, self.x_max, 2000)
+            xs = np.array(self.x(ss))
+            ys = np.array(self.y(ss))
             xys = list(zip((xs - self.x_min) * self.scale, ys * self.scale))
 
-            self.track = rendering.make_polyline(
-                [(0, 0), *xys, (self.screen_width_pixels, 0)])
+            self.track = rendering.make_polyline(xys)
             self.track.set_color(44/255, 160/255, 44/255)
             self.track.set_linewidth(5)
             self.viewer.add_geom(self.track)
 
             # start flag
-            flag_x = (self.starting_position - self.x_min) * self.scale
+            flag_x = (self.x(self.starting_position) - self.x_min) * self.scale
             flag_bottom_y = self.y(self.starting_position) * self.scale
             flag_top_y = flag_bottom_y + 100.0
             flagpole = rendering.Line((flag_x, flag_bottom_y),
@@ -240,7 +295,7 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
             self.viewer.add_geom(flag)
 
             # goal flag
-            flag_x = (self.goal_position - self.x_min) * self.scale
+            flag_x = (self.x(self.goal_position) - self.x_min) * self.scale
             flag_bottom_y = self.y(self.goal_position) * self.scale
             flag_top_y = flag_bottom_y + 100.0
             flagpole = rendering.Line((flag_x, flag_bottom_y),
@@ -255,10 +310,10 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
 
             # goal margin
             stone_width, stone_height = 16, 16
-            left_stone_x = (self.min_goal - self.x_min) * self.scale
+            left_stone_x = (self.x(self.min_goal) - self.x_min) * self.scale
             left_stone_bottom_y = \
                 self.y(left_stone_x / self.scale) * self.scale
-            right_stone_x = (self.max_goal - self.x_min) * self.scale
+            right_stone_x = (self.x(self.max_goal) - self.x_min) * self.scale
             right_stone_bottom_y = \
                 self.y(right_stone_x / self.scale) * self.scale
             left_stone = rendering.FilledPolygon([
@@ -347,7 +402,7 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
             self.viewer.add_geom(self.axle)
 
         self.cart_trans.set_translation(
-            (x - self.x_min) * self.scale, self.y(x) * self.scale)
+            (x - self.x_min) * self.scale, self.y(s) * self.scale)
         k = np.arctan(-1 / self.y_dot(x)) if self.y_dot(x) != 0.0 else pi / 2
         self.cart_trans.set_rotation(pi / 2 + k if k < 0 else k - pi / 2)
 
@@ -355,4 +410,3 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
             -(pi / 2 + k if k < 0 else k - pi / 2) - theta)
 
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
-

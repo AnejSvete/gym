@@ -95,7 +95,7 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
             (self.obstacle_location - self.x_min) * self.scale
         self.obstacle_width = 0.04
         self.obstacle_width_pixels = self.obstacle_width * self.scale
-        self.set_obstacle_height(below_pole_top=0.05)
+        self.set_obstacle_height(desired_angle=pi/6, units='rad')
 
         self.starting_position = self.obstacle_location - pi / 2
         self.goal_position = self.starting_position + 3 / 2 * pi
@@ -116,10 +116,17 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.times_at_goal = 0
 
     def reset(self):
+
+        """
+        self.state = self.np_random.uniform(
+            low=(self.starting_position, -0.05, -pi / 15, -0.05),
+            high=(self.starting_position, 0.05, pi / 15, 0.05),
+            size=(4,))
+        """
         if self.mode == 'train':
             self.state = self.np_random.uniform(
-                low=(self.starting_position - pi / 4, -0.05, -pi / 5, -0.05),
-                high=(self.goal_position + pi / 2, 0.05, pi / 5, 0.05),
+                low=(self.starting_position - pi / 4, -0.05, -pi / 6, -0.05),
+                high=(self.goal_position + 2 * pi / 8, 0.05, pi / 6, 0.05),
                 size=(4,))
         if self.mode == 'agressive_train':
             self.state = self.np_random.uniform(
@@ -136,9 +143,10 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
                 low=(self.goal_position, -0.05, -pi / 15, -0.05),
                 high=(self.goal_position, 0.05, pi / 15, 0.05),
                 size=(4,))
+
         self.times_at_goal = 0
         self.episode_step = 0
-        return np.array(self.state)
+        return self.obeservation()
 
     def x(self, s):
         return s
@@ -197,6 +205,9 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
             self.intersection_polygon = intersection
             return True
 
+    def action_to_force(self, action):
+        return self.force_mag if action == 1 else -self.force_mag
+
     def reward(self, failed):
         s, s_dot, theta, theta_dot = self.state
         x = self.x(s)
@@ -226,10 +237,15 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
             self.pole_touches_obstacle() or \
             self.episode_step >= self.max_episode_steps - 1
 
-    def set_obstacle_height(self, below_pole_top=0.10):
+    def set_obstacle_height(self, below_pole_top=0.10,
+                            desired_angle=None, units='rad'):
+
+        if desired_angle is not None:
+            if units == 'deg':
+                desired_angle = desired_angle / 180 * pi
+            below_pole_top = 1 - np.cos(desired_angle)
 
         pole_top = self.cart_top_y + self.pole_length
-
         self.obstacle_height = self.world_height - pole_top + below_pole_top
         self.obstacle_height_pixels = self.obstacle_height * self.scale
 
@@ -238,6 +254,9 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
             self.obstacle_location_pixels + self.obstacle_width_pixels / 2,
             self.screen_height_pixels,
             self.screen_height_pixels - self.obstacle_height_pixels]
+
+    def obeservation(self):
+        return self.state
 
     def render(self, mode='human'):
 

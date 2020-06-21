@@ -27,7 +27,7 @@ class CartPoleExtensionEnv(gym.Env):
     }
 
     def __init__(self, mode='train', de_solver='scipy', seed=526245):
-        
+
         self.gravity = -g
         self.mass_cart = 1.0
         self.mass_pole = 0.1
@@ -89,35 +89,62 @@ class CartPoleExtensionEnv(gym.Env):
         raise NotImplementedError
 
     def s_dot_dot(self, F, s, s_dot, theta, theta_dot):
-        return (-2 * F +
-                self.y_dot(s) * (
-                        -(self.gravity * (self.mass_pole + 2 * self.mass_cart + self.mass_pole * np.cos(2 * theta)))
-                        - 2 * self.pole_length * self.mass_pole * np.cos(theta) * theta_dot ** 2
-                        + s_dot ** 2 * (self.mass_pole * np.sin(2 * theta) * self.x_dot_dot(s)
-                                        + (self.mass_pole + 2 * self.mass_cart
-                                           + self.mass_pole * np.cos(2 * theta)) * self.y_dot_dot(s)))
-                + self.x_dot(s) * (-(self.gravity * self.mass_pole * np.sin(2 * theta))
-                                   - 2 * self.pole_length * self.mass_pole * np.sin(theta) * theta_dot ** 2
-                                   + s_dot ** 2 * ((self.mass_pole + 2 * self.mass_cart
-                                                    - self.mass_pole * np.cos(2 * theta)) * self.x_dot_dot(s)
-                                                   + self.mass_pole * np.sin(2 * theta) * self.y_dot_dot(s)))) / \
-               ((-self.mass_pole - 2 * self.mass_cart + self.mass_pole * np.cos(2 * theta)) * self.x_dot(s) ** 2
-                - 2 * self.mass_pole * np.sin(2 * theta) * self.x_dot(s) * self.y_dot(s)
-                - (self.mass_pole + 2 * self.mass_cart + self.mass_pole * np.cos(2 * theta)) * self.y_dot(s) ** 2)
+        cos_theta = np.cos(theta)
+        sin_theta = np.sin(theta)
+        cos_2theta = np.cos(2 * theta)
+        sin_2theta = np.sin(2 * theta)
+        y_dot = self.y_dot(s)
+        y_dot_dot = self.y_dot_dot(s)
+        x_dot = self.x_dot(s)
+        x_dot_dot = self.x_dot_dot(s)
+        return (
+            -2 * F + y_dot * (-(self.gravity * (
+                self.mass_pole + 2 * self.mass_cart +
+                self.mass_pole * cos_2theta))
+                - 2 * self.pole_length * self.mass_pole *
+                cos_theta * theta_dot ** 2
+                + s_dot ** 2 * (self.mass_pole * sin_2theta * x_dot_dot
+                                + (self.mass_pole + 2 * self.mass_cart
+                                   + self.mass_pole * cos_2theta) * y_dot_dot))
+            + x_dot * (-(self.gravity * self.mass_pole * sin_2theta)
+                       - 2 * self.pole_length * self.mass_pole *
+                       sin_theta * theta_dot ** 2
+                       + s_dot ** 2 * (
+                           (self.mass_pole + 2 * self.mass_cart
+                            - self.mass_pole * cos_2theta) * x_dot_dot
+                + self.mass_pole * sin_2theta * y_dot_dot))) / \
+               ((-self.mass_pole - 2 * self.mass_cart +
+                 self.mass_pole * cos_2theta) * x_dot ** 2
+                - 2 * self.mass_pole * sin_2theta * x_dot * y_dot
+                - (self.mass_pole + 2 * self.mass_cart +
+                   self.mass_pole * cos_2theta) * y_dot ** 2
+                )
 
     def theta_dot_dot(self, F, s, s_dot, theta, theta_dot):
-        return (F * (np.cos(theta) * self.x_dot(s) - np.sin(theta) * self.y_dot(s)) +
-                (np.sin(theta) * self.x_dot(s) + np.cos(theta) * self.y_dot(s)) *
-                (self.y_dot(s) * (-(self.pole_length * self.mass_pole * np.sin(theta) * theta_dot ** 2)
-                                  + (self.mass_pole + self.mass_cart) * s_dot ** 2 * self.x_dot_dot(s))
-                 + self.x_dot(s) * (self.pole_length * self.mass_pole * np.cos(theta) * theta_dot ** 2
-                                    + (self.mass_pole + self.mass_cart) * (
-                                            self.gravity - s_dot ** 2 * self.y_dot_dot(s))))) / \
+        cos_theta = np.cos(theta)
+        sin_theta = np.sin(theta)
+        cos_2theta = np.cos(2 * theta)
+        sin_2theta = np.sin(2 * theta)
+        y_dot = self.y_dot(s)
+        y_dot_dot = self.y_dot_dot(s)
+        x_dot = self.x_dot(s)
+        x_dot_dot = self.x_dot_dot(s)
+        return (F * (cos_theta * x_dot - sin_theta * y_dot) +
+                (sin_theta * x_dot + cos_theta * y_dot) *
+                (y_dot * (-(self.pole_length * self.mass_pole *
+                            sin_theta * theta_dot ** 2)
+                          + (self.mass_pole + self.mass_cart) *
+                          s_dot ** 2 * x_dot_dot)
+                 + x_dot * (self.pole_length * self.mass_pole *
+                            cos_theta * theta_dot ** 2
+                            + (self.mass_pole + self.mass_cart) * (
+                                self.gravity - s_dot ** 2 * y_dot_dot)))) / \
                (self.pole_length * (
-                       (-self.mass_pole - self.mass_cart + self.mass_pole * np.cos(theta) ** 2) * self.x_dot(s) ** 2
-                       - self.mass_pole * np.sin(2 * theta) * self.x_dot(s) * self.y_dot(s)
-                       - ((self.mass_pole + 2 * self.mass_cart
-                           + self.mass_pole * np.cos(2 * theta)) * self.y_dot(s) ** 2) / 2.))
+                   (-self.mass_pole - self.mass_cart + self.mass_pole *
+                    cos_theta ** 2) * x_dot ** 2
+                   - self.mass_pole * sin_2theta * x_dot * y_dot
+                   - ((self.mass_pole + 2 * self.mass_cart
+                       + self.mass_pole * cos_2theta) * y_dot ** 2) / 2.))
 
     def new_state(self, action):
 
@@ -127,7 +154,7 @@ class CartPoleExtensionEnv(gym.Env):
             force = 10 * self.force_mag \
                 if action == -1 else -10 * self.force_mag
         else:
-            force = self.force_mag if action == 1 else -self.force_mag
+            force = self.action_to_force(action)
 
         if self.de_solver == 'euler':
 
@@ -169,6 +196,9 @@ class CartPoleExtensionEnv(gym.Env):
 
         return np.array([s, s_dot, theta, theta_dot])
 
+    def action_to_force(self, action):
+        raise NotImplementedError
+
     def reward(self, failed):
         raise NotImplementedError
 
@@ -177,13 +207,13 @@ class CartPoleExtensionEnv(gym.Env):
 
     def has_failed(self, x, theta):
         raise NotImplementedError
-    
+
     def step(self, action):
         assert self.action_space.contains(action), \
             "%r (%s) invalid" % (action, type(action))
 
         s, s_dot, theta, theta_dot = self.new_state(action)
-        self.state = (s, s_dot, theta, theta_dot)
+        self.state = np.array([s, s_dot, theta, theta_dot])
 
         x, x_dot = self.x(s), self.x_dot(s)
 
@@ -205,7 +235,10 @@ class CartPoleExtensionEnv(gym.Env):
         info = {'success': successful,
                 'time_limit': self.episode_step >= self.max_episode_steps}
 
-        return np.array(self.state), reward, done, info
+        return self.obeservation(), reward, done, info
+
+    def obeservation(self):
+        raise NotImplementedError
 
     def render(self, mode='human'):
         raise NotImplementedError
