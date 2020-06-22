@@ -11,7 +11,7 @@ from scipy.integrate import solve_ivp
 
 from shapely.geometry import LineString, Polygon
 
-# TODO
+# TODO: as strings...
 PUSH_CART_RIGHT = 0
 PUSH_CART_LEFT = 1
 PUSH_POLE_RIGHT = 2
@@ -23,7 +23,7 @@ STOP_POLE = 5
 class CartPoleObstacleEnv(CartPoleExtensionEnv):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second': 100
+        'video.frames_per_second': 50
     }
 
     def __init__(self, mode='train', de_solver='scipy', seed=526245):
@@ -36,12 +36,12 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.total_mass = self.mass_pole + self.mass_cart
         self.pole_length = 1.0
         self.force_mag = 10.0
-        self.tau = 0.01  # seconds between state updates
+        self.tau = 0.02  # seconds between state updates
 
         self.de_solver = de_solver
         self.mode = mode
 
-        self.theta_min, self.theta_max = -pi / 2, pi / 2
+        self.theta_min, self.theta_max = -pi / 4, pi / 4
         self.x_min, self.x_max = -self.world_width / 2, self.world_width / 2
 
         low = np.array([
@@ -95,7 +95,7 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
             (self.obstacle_location - self.x_min) * self.scale
         self.obstacle_width = 0.04
         self.obstacle_width_pixels = self.obstacle_width * self.scale
-        self.set_obstacle_height(desired_angle=pi/6, units='rad')
+        self.set_obstacle_height(desired_angle=pi/15, units='rad')
 
         self.starting_position = self.obstacle_location - pi / 2
         self.goal_position = self.starting_position + 3 / 2 * pi
@@ -106,7 +106,7 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.state = None
 
         self.episode_step = 0
-        self.max_episode_steps = 1000
+        self.max_episode_steps = 500
 
         self.goal_stable_duration = 10
         self.goal_x_margin = pi / 3
