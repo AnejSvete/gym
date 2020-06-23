@@ -22,7 +22,7 @@ STOP_POLE = 5
 class CartPoleMountainEnv(CartPoleExtensionEnv):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second': 100
+        'video.frames_per_second': 50
     }
 
     def __init__(self, mode='train', de_solver='scipy', seed=371875):
@@ -37,7 +37,7 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
         self.total_mass = (self.mass_pole + self.mass_cart)
         self.pole_length = 1.0
         self.force_mag = 10
-        self.tau = 0.01  # seconds between state updates
+        self.tau = 0.02  # seconds between state updates
 
         self.de_solver = de_solver
 
@@ -85,9 +85,9 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
 
         # Environment parameters:
         self.initial_height = self.world_height / 3
-        # self.height = 1.15
-        self.height = 0.75
-        self.steepness = 1.0
+        self.height = 1.5
+        # self.height = 0.75
+        self.steepness = 0.9
 
         self.slope_length = pi / self.steepness
 
@@ -103,7 +103,7 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
         self.state = None
 
         self.episode_step = 0
-        self.max_episode_steps = 1000
+        self.max_episode_steps = 500
 
         self.min_goal, self.max_goal = \
             self.bottom + self.bottom_width / 2 + self.slope_length, self.x_max
@@ -124,8 +124,8 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
 
         if self.mode == 'train':
             self.state = np.random.uniform(
-                low=(self.bottom - self.slope_length, -0.05, -pi / 6, -0.05),
-                high=(self.goal_position + pi / 2, 0.05, pi / 6, 0.05),
+                low=(self.bottom - self.slope_length, -0.05, -pi / 12, -0.05),
+                high=(self.goal_position + pi / 2, 0.05, pi / 12, 0.05),
                 size=(4,))
         else:
             self.state = np.random.uniform(

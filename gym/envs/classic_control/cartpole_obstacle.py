@@ -93,9 +93,9 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.obstacle_location = self.x_min + pi
         self.obstacle_location_pixels = \
             (self.obstacle_location - self.x_min) * self.scale
-        self.obstacle_width = 0.04
+        self.obstacle_width = 0.10
         self.obstacle_width_pixels = self.obstacle_width * self.scale
-        self.set_obstacle_height(desired_angle=pi/15, units='rad')
+        self.set_obstacle_height(desired_angle=25, units='deg')
 
         self.starting_position = self.obstacle_location - pi / 2
         self.goal_position = self.starting_position + 3 / 2 * pi
@@ -116,13 +116,13 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.times_at_goal = 0
 
     def reset(self):
-
         """
         self.state = self.np_random.uniform(
             low=(self.starting_position, -0.05, -pi / 15, -0.05),
             high=(self.starting_position, 0.05, pi / 15, 0.05),
             size=(4,))
         """
+
         if self.mode == 'train':
             self.state = self.np_random.uniform(
                 low=(self.starting_position - pi / 4, -0.05, -pi / 6, -0.05),
@@ -166,9 +166,6 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
     def y_dot_dot(self, s):
         return 0.0
 
-    def phi(self, t):
-        return np.arctan(self.y_dot(t))
-
     def pole_top_coordinates(self):
         s, s_dot, theta, theta_dot = self.state
         x = self.x(s)
@@ -193,9 +190,10 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
 
         l, r, t, b = self.obstacle_coordinate_pixels
         obstacle = Polygon([(l, b), (l, t), (r, t), (r, b)])
-        pole = LineString([self.pole_bottom_coordinates(),
-                           self.pole_top_coordinates()]).buffer(
-            self.pole_width_pixels / 2)
+        pole = LineString([
+            self.pole_bottom_coordinates(),
+            self.pole_top_coordinates()]
+        ).buffer(self.pole_width_pixels / 2)
         intersection = obstacle.intersection(pole)
 
         if intersection.is_empty or intersection.area == 0.0:
@@ -274,6 +272,13 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
                 (self.screen_width_pixels, 0)])
             self.track.set_color(44/255, 160/255, 44/255)
             self.viewer.add_geom(self.track)
+
+            # obstacle
+            l, r, t, b = self.obstacle_coordinate_pixels
+            obstacle = rendering.FilledPolygon(
+                [(l, b), (l, t), (r, t), (r, b)])
+            obstacle.set_color(214/255, 39/255, 40/255)
+            self.viewer.add_geom(obstacle)
 
             # start flag
             flag_x = (self.starting_position - self.x_min) * self.scale
@@ -394,13 +399,6 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
             self.axle.add_attr(self.cart_trans)
             self.axle.set_color(127/255, 127/255, 127/255)
             self.viewer.add_geom(self.axle)
-
-            # obstacle
-            l, r, t, b = self.obstacle_coordinate_pixels
-            obstacle = rendering.FilledPolygon(
-                [(l, b), (l, t), (r, t), (r, b)])
-            obstacle.set_color(214/255, 39/255, 40/255)
-            self.viewer.add_geom(obstacle)
 
         if self.intersection_polygon is not None:
             intersection_polygon = rendering.FilledPolygon(

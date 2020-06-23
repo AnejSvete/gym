@@ -146,6 +146,18 @@ class CartPoleExtensionEnv(gym.Env):
                    - ((self.mass_pole + 2 * self.mass_cart
                        + self.mass_pole * cos_2theta) * y_dot ** 2) / 2.))
 
+    def action_to_force(self, action):
+        raise NotImplementedError
+
+    def reward(self, failed):
+        raise NotImplementedError
+
+    def in_goal_state(self):
+        raise NotImplementedError
+
+    def has_failed(self, x, theta):
+        raise NotImplementedError
+
     def new_state(self, action):
 
         s, s_dot, theta, theta_dot = self.state
@@ -195,18 +207,6 @@ class CartPoleExtensionEnv(gym.Env):
             theta -= 2 * pi
 
         return np.array([s, s_dot, theta, theta_dot])
-
-    def action_to_force(self, action):
-        raise NotImplementedError
-
-    def reward(self, failed):
-        raise NotImplementedError
-
-    def in_goal_state(self):
-        raise NotImplementedError
-
-    def has_failed(self, x, theta):
-        raise NotImplementedError
 
     def step(self, action):
         assert self.action_space.contains(action), \
