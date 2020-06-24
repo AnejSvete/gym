@@ -206,19 +206,14 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
     def action_to_force(self, action):
         return self.force_mag if action == 1 else -self.force_mag
 
-    def reward(self, failed):
-        s, s_dot, theta, theta_dot = self.state
-        x = self.x(s)
-        if failed:
-            # return -2 * (self.max_episode_steps - self.episode_step)
-            # return -2 * (self.max_episode_steps - self.episode_step) / \
-            #        (2 * self.max_episode_steps)
+    def reward(self, in_goal_state, failed):
+        # TODO: there used to be a bug here
+        if in_goal_state:
+            return 0
+        elif failed:
             return -0.5
         else:
-            return 0 if np.abs(x - self.goal_position) < self.goal_x_margin \
-                else -1 / (2 * self.max_episode_steps)
-            # return 0 if np.abs(x - self.goal_position) < self.goal_margin \
-            #     else -1
+            return -1 / (2 * self.max_episode_steps)
 
     def in_goal_state(self):
         s, s_dot, theta, theta_dot = self.state

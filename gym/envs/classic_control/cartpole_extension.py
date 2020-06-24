@@ -149,7 +149,7 @@ class CartPoleExtensionEnv(gym.Env):
     def action_to_force(self, action):
         raise NotImplementedError
 
-    def reward(self, failed):
+    def reward(self, in_goal_state, failed):
         raise NotImplementedError
 
     def in_goal_state(self):
@@ -219,23 +219,24 @@ class CartPoleExtensionEnv(gym.Env):
 
         failed = self.has_failed(x, theta)
 
-        reward = self.reward(failed)
-
-        if self.in_goal_state():
+        in_goal_state = self.in_goal_state()
+        if in_goal_state:
             self.times_at_goal += 1
         else:
             self.times_at_goal = 0
 
         successful = self.times_at_goal >= self.goal_stable_duration
 
-        done = failed or successful
-
         self.episode_step += 1
 
         info = {'success': successful,
                 'time_limit': self.episode_step >= self.max_episode_steps}
 
-        return self.obeservation(), reward, done, info
+        reward = self.reward(in_goal_state, failed)
+        obs = self.obeservation()
+        done = failed or successful
+
+        return obs, reward, done, info
 
     def obeservation(self):
         raise NotImplementedError

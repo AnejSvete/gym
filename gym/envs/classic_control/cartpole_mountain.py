@@ -230,16 +230,14 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
     def action_to_force(self, action):
         return (action - 1) * self.force_mag
 
-    def reward(self, failed):
-        s, s_dot, theta, theta_dot = self.state
-        x = self.x(s)
-        if failed:
-            # return -2 * (self.max_episode_steps - self.episode_step) / \
-            #        (2 * self.max_episode_steps)
+    def reward(self, in_goal_state, failed):
+        # TODO: there used to be a bug here
+        if in_goal_state:
+            return 0
+        elif failed:
             return -0.5
         else:
-            return 0 if self.min_goal <= x <= self.max_goal \
-                else -1 / (2 * self.max_episode_steps)
+            return -1 / (2 * self.max_episode_steps)
 
     def in_goal_state(self):
         s, s_dot, theta, theta_dot = self.state
