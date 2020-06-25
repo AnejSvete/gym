@@ -10,14 +10,6 @@ from scipy.integrate import odeint
 
 from shapely.geometry import LineString
 
-# TODO
-PUSH_CART_RIGHT = 0
-PUSH_CART_LEFT = 1
-PUSH_POLE_RIGHT = 2
-PUSH_POLE_LEFT = 3
-STOP_CART = 4
-STOP_POLE = 5
-
 
 class CartPoleMountainEnv(CartPoleExtensionEnv):
     metadata = {
@@ -61,14 +53,16 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
             np.finfo(np.float32).max, 
             np.finfo(np.float32).max])
 
-        self.action_space = spaces.Discrete(3)
-        # self.action_space = spaces.Discrete(2)
+        # self.action_space = spaces.Discrete(3)
+        self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(low, high, dtype=np.float64)
 
         self.seed(seed)
 
         self.screen_width_pixels, self.screen_height_pixels = 1600, 800
         self.scale = self.screen_width_pixels / self.world_width
+
+        self.t_evals = None
 
         self.cart_width = 0.4
         self.cart_height = 0.25

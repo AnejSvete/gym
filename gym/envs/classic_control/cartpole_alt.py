@@ -63,6 +63,8 @@ class CartPoleAltEnv(CartPoleExtensionEnv):
         self.screen_width_pixels, self.screen_height_pixels = 2000, 400
         self.scale = self.screen_width_pixels / self.world_width
 
+        self.t_evals = None 
+        
         self.cart_width = 0.4
         self.cart_height = 0.25
         self.track_height = 0.2

@@ -34,8 +34,11 @@ class CartPoleExtensionEnv(gym.Env):
         self.total_mass = self.mass_pole + self.mass_cart
         self.pole_length = 1.0
         self.force_mag = 10.0
-        self.tau = 0.01  # seconds between state updates
-
+        self.tau = 0.02  # seconds between state updates
+        
+        self.t_evals = None
+        self.theta_dots = None
+        
         self.de_solver = de_solver
         self.mode = mode
 
@@ -193,10 +196,12 @@ class CartPoleExtensionEnv(gym.Env):
                 args=(force,), method='DOP853').y
             thetas, theta_dots = solve_ivp(
                 Ftheta, (0, self.tau), np.array([theta, theta_dot]),
-                args=(force,), method='DOP853').y
+                t_eval=self.t_evals, args=(force,), method='DOP853').y
 
             s_dot = s_dots[-1]
             s = ss[-1]
+
+            self.thetas = thetas
 
             theta_dot = theta_dots[-1]
             theta = thetas[-1]

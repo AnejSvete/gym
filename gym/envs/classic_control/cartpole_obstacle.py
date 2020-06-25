@@ -11,14 +11,6 @@ from scipy.integrate import solve_ivp
 
 from shapely.geometry import LineString, Polygon
 
-# TODO: as strings...
-PUSH_CART_RIGHT = 0
-PUSH_CART_LEFT = 1
-PUSH_POLE_RIGHT = 2
-PUSH_POLE_LEFT = 3
-STOP_CART = 4
-STOP_POLE = 5
-
 
 class CartPoleObstacleEnv(CartPoleExtensionEnv):
     metadata = {
@@ -62,6 +54,9 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
 
         self.screen_width_pixels, self.screen_height_pixels = 2000, 400
         self.scale = self.screen_width_pixels / self.world_width
+
+        self.t_evals = np.array(
+            [0, self.tau / 4, self.tau / 2, 3 * self.tau / 4, self.tau])
 
         self.cart_width = 0.4
         self.cart_height = 0.25
@@ -166,9 +161,7 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
     def y_dot_dot(self, s):
         return 0.0
 
-    def pole_top_coordinates(self):
-        s, s_dot, theta, theta_dot = self.state
-        x = self.x(s)
+    def pole_top_coordinates(self, x, theta):
         return (x * self.scale + self.screen_width_pixels / 2 +
                 self.pole_length_pixels * np.sin(theta),
                 self.cart_top_y_pixels +
@@ -188,20 +181,24 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         if self.state is None:
             return True
 
+        x = self.x(self.state[0])
+
         l, r, t, b = self.obstacle_coordinate_pixels
         obstacle = Polygon([(l, b), (l, t), (r, t), (r, b)])
-        pole = LineString([
-            self.pole_bottom_coordinates(),
-            self.pole_top_coordinates()]
-        ).buffer(self.pole_width_pixels / 2)
-        intersection = obstacle.intersection(pole)
 
-        if intersection.is_empty or intersection.area == 0.0:
-            self.intersection_polygon = None
-            return False
-        else:
-            self.intersection_polygon = intersection
-            return True
+        for theta in self.thetas:
+            pole = LineString([
+                self.pole_bottom_coordinates(),
+                self.pole_top_coordinates(x, theta)]
+            ).buffer(self.pole_width_pixels / 2)
+            intersection = obstacle.intersection(pole)
+
+            if not intersection.is_empty and intersection.area > 0.0:
+                self.intersection_polygon = intersection
+                return True
+
+        self.intersection_polygon = None
+        return False
 
     def action_to_force(self, action):
         return self.force_mag if action == 1 else -self.force_mag
