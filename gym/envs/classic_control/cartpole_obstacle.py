@@ -18,7 +18,11 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         'video.frames_per_second': 50
     }
 
-    def __init__(self, mode='train', de_solver='scipy', seed=526245):
+    def __init__(self, mode='train', de_solver='scipy', 
+                 use_keyboard=False, seed=526245):
+        self.name = 'CartPole-v2'
+
+        self.setup_keyboard_listener(use_keyboard)
 
         self.world_width, self.world_height = 5 * pi, pi
 
@@ -88,9 +92,9 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.obstacle_location = self.x_min + pi
         self.obstacle_location_pixels = \
             (self.obstacle_location - self.x_min) * self.scale
-        self.obstacle_width = 0.10
+        self.obstacle_width = 0.04
         self.obstacle_width_pixels = self.obstacle_width * self.scale
-        self.set_obstacle_height(desired_angle=25, units='deg')
+        self.set_obstacle_height(desired_angle=15, units='deg')
 
         self.starting_position = self.obstacle_location - pi / 2
         self.goal_position = self.starting_position + 3 / 2 * pi

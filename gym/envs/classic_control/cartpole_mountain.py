@@ -18,6 +18,7 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
     }
 
     def __init__(self, mode='train', de_solver='scipy', seed=371875):
+        self.name = 'CartPole-v3'
 
         self.world_width, self.world_height = 4 * pi, 2 * pi
 

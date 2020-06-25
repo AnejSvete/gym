@@ -27,6 +27,7 @@ class CartPoleAltEnv(CartPoleExtensionEnv):
     }
 
     def __init__(self, mode='train', de_solver='scipy', seed=526245):
+        self.name = 'CartPole-v4'
 
         self.world_width, self.world_height = 5 * pi, pi
 
@@ -64,7 +65,7 @@ class CartPoleAltEnv(CartPoleExtensionEnv):
         self.scale = self.screen_width_pixels / self.world_width
 
         self.t_evals = None 
-        
+
         self.cart_width = 0.4
         self.cart_height = 0.25
         self.track_height = 0.2

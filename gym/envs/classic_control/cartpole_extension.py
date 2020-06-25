@@ -10,20 +10,13 @@ from scipy.constants import g, pi
 from scipy.integrate import solve_ivp
 
 from shapely.geometry import LineString, Polygon
-
-# TODO
-PUSH_CART_RIGHT = 0
-PUSH_CART_LEFT = 1
-PUSH_POLE_RIGHT = 2
-PUSH_POLE_LEFT = 3
-STOP_CART = 4
-STOP_POLE = 5
+from pynput import keyboard
 
 
 class CartPoleExtensionEnv(gym.Env):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second': 100
+        'video.frames_per_second': 50
     }
 
     def __init__(self, mode='train', de_solver='scipy', seed=526245):
@@ -50,6 +43,40 @@ class CartPoleExtensionEnv(gym.Env):
         self.times_at_goal = 0
         self.goal_stable_duration = 10
 
+    def setup_keyboard_listener(self, use_keyboard):
+        if not use_keyboard:
+            return
+        
+        def on_press(key):
+            print(f'key {key} pressed')
+            pass
+
+        def on_release(key):
+            print(f'key {key} released')
+
+            try:
+                if key.char == 'a':
+                    self.manual_control('push_cart_right')
+                if key.char == 's':
+                    self.manual_control('stop_cart')
+                elif key.char == 'd':
+                    self.manual_control('push_cart_left')
+                if key.char == 'j':
+                    self.manual_control('push_pole_right')
+                if key.char == 'k':
+                    self.manual_control('stop_pole')
+                elif key.char == 'l':
+                    self.manual_control('push_pole_left')
+            except AttributeError:
+                # print('an unsupported key pressed - please only use the keys \
+                #        ["j", "k", "l", "a", "s", "d"]')
+                pass
+
+            if key == keyboard.Key.esc:
+                return False
+
+        keyboard.Listener(on_press=on_press, on_release=on_release).start()
+
     def reset(self):
         raise NotImplementedError
 
@@ -60,17 +87,17 @@ class CartPoleExtensionEnv(gym.Env):
 
     def manual_control(self, cmd):
         s, s_dot, theta, theta_dot = self.state
-        if cmd == STOP_CART:
+        if cmd == 'stop_cart':
             self.state = np.array([s, 0, theta, theta_dot])
-        elif cmd == PUSH_CART_RIGHT:
+        elif cmd == 'push_cart_right':
             self.state = self.new_state(action=-1)
-        elif cmd == PUSH_CART_LEFT:
+        elif cmd == 'push_cart_left':
             self.state = self.new_state(action=-2)
-        elif cmd == STOP_POLE:
+        elif cmd == 'stop_pole':
             self.state = np.array([s, s_dot, theta, 0])
-        elif cmd == PUSH_POLE_RIGHT:
+        elif cmd == 'push_pole_right':
             self.state = np.array([s, s_dot, theta, theta_dot + 0.25])
-        elif cmd == PUSH_POLE_LEFT:
+        elif cmd == 'push_pole_left':
             self.state = np.array([s, s_dot, theta, theta_dot - 0.25])
 
     def x(self, s):
@@ -166,8 +193,7 @@ class CartPoleExtensionEnv(gym.Env):
         s, s_dot, theta, theta_dot = self.state
 
         if action in [-1, -2]:
-            force = 10 * self.force_mag \
-                if action == -1 else -10 * self.force_mag
+            force = 2 * self.force_mag if action == -1 else -2 * self.force_mag
         else:
             force = self.action_to_force(action)
 
