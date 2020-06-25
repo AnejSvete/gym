@@ -26,8 +26,11 @@ class CartPoleAltEnv(CartPoleExtensionEnv):
         'video.frames_per_second': 50
     }
 
-    def __init__(self, mode='train', de_solver='scipy', seed=526245):
+    def __init__(self, mode='train', de_solver='scipy',
+                 use_keyboard=False, seed=526245):
         self.name = 'CartPole-v4'
+
+        self.setup_keyboard_listener(use_keyboard)
 
         self.world_width, self.world_height = 5 * pi, pi
 
@@ -95,6 +98,8 @@ class CartPoleAltEnv(CartPoleExtensionEnv):
 
         self.viewer = None
         self.state = None
+
+        self.goal_position = 0.0
 
         self.episode_step = 0
         self.max_episode_steps = 500
