@@ -8,6 +8,8 @@ from gym.envs.classic_control.cartpole_extension import CartPoleExtensionEnv
 import numpy as np
 from scipy.constants import g, pi
 
+from shapely.geometry import LineString
+
 
 class CartPoleAltEnv(CartPoleExtensionEnv):
     metadata = {
