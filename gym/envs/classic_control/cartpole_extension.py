@@ -187,6 +187,9 @@ class CartPoleExtensionEnv(gym.Env):
     def in_goal_state(self):
         raise NotImplementedError
 
+    def is_successful(self, in_goal_state, failed):
+        raise NotImplementedError
+
     def has_failed(self, x, theta):
         raise NotImplementedError
 
@@ -258,7 +261,7 @@ class CartPoleExtensionEnv(gym.Env):
         else:
             self.times_at_goal = 0
 
-        successful = self.times_at_goal >= self.goal_stable_duration
+        successful = self.is_successful(in_goal_state, failed)
 
         self.episode_step += 1
 

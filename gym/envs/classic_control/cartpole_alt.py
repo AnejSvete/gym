@@ -138,6 +138,9 @@ class CartPoleAltEnv(CartPoleExtensionEnv):
         x = self.x(s)
         return not self.has_failed(x, theta)
 
+    def is_successful(self, in_goal_state, failed):
+        return self.times_at_goal >= self.goal_stable_duration
+
     def has_failed(self, x, theta):
         return not self.x_min <= x <= self.x_max or \
             not self.theta_min <= theta <= self.theta_max 

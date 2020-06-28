@@ -108,10 +108,7 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.max_episode_steps = 500
 
         self.goal_stable_duration = 10
-        self.goal_x_margin = pi / 3
-        self.goal_x_dot_margin = 1.0
-        self.goal_theta_margin = 0.05
-        self.goal_theta_dot_margin = 1.0
+        self.goal_x_margin = 0.5
         self.times_at_goal = 0
 
     def reset(self):
@@ -208,7 +205,6 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         return self.force_mag if action == 1 else -self.force_mag
 
     def reward(self, in_goal_state, failed):
-        # TODO: there used to be a bug here
         if in_goal_state:
             return 0
         elif failed:
@@ -217,19 +213,27 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
             return -1 / (2 * self.max_episode_steps)
 
     def in_goal_state(self):
-        s, s_dot, theta, theta_dot = self.state
-        x, x_dot = self.x(s), self.x_dot(s)
+        x = self.x(self.state[0])
+        return self.theta_min <= self.state[2] <= self.theta_max and \
+            np.abs(x - self.goal_position) <= self.goal_x_margin
 
-        return np.abs(x - self.goal_position) <= self.goal_x_margin and \
-            np.abs(x_dot) <= self.goal_x_dot_margin and \
-            np.abs(theta) <= self.goal_theta_margin and \
-            np.abs(theta_dot) <= self.goal_theta_dot_margin
+    def is_successful(self, in_goal_state, failed):
+
+        if self.mode == 'train':
+            return self.times_at_goal >= self.goal_stable_duration
+
+        elif self.mode in ['test', 'eval']:
+
+            return not failed and \
+                in_goal_state and \
+                self.episode_step >= self.max_episode_steps - 1
 
     def has_failed(self, x, theta):
         return not self.x_min <= x <= self.x_max or \
             not self.theta_min <= theta <= self.theta_max or \
             self.pole_touches_obstacle() or \
-            self.episode_step >= self.max_episode_steps - 1
+            (self.episode_step >= self.max_episode_steps - 1 and 
+             not self.in_goal_state())
 
     def set_obstacle_height(self, below_pole_top=0.10,
                             desired_angle=None, units='rad'):

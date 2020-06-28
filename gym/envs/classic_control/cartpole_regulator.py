@@ -16,7 +16,7 @@ class CartPoleRegulatorEnv(CartPoleExtensionEnv):
         'video.frames_per_second': 50
     }
 
-    def __init__(self, mode='train', de_solver='scipy', 
+    def __init__(self, mode='train', de_solver='scipy',
                  use_keyboard=False, seed=526245):
         self.name = 'CartPole-v5'
 
@@ -89,33 +89,28 @@ class CartPoleRegulatorEnv(CartPoleExtensionEnv):
         self.starting_position = -1
         self.goal_position = 1
 
-        self.intersection_polygon = None
-
         self.viewer = None
         self.state = None
 
         self.episode_step = 0
         self.max_episode_steps = 500
 
-        self.goal_stable_duration = 100
-        self.goal_x_margin = 0.25
-        self.goal_x_dot_margin = 0.5
-        self.goal_theta_margin = pi / 48
-        self.goal_theta_dot_margin = 0.5
+        self.goal_stable_duration = 10
+        self.goal_x_margin = 0.5
         self.times_at_goal = 0
 
     def reset(self):
 
         if self.mode == 'train':
             self.state = self.np_random.uniform(
-                low=(self.starting_position - 0.25, -0.05, -pi / 6, -0.05),
-                high=(self.goal_position + 0.25, 0.05, pi / 6, 0.05),
+                low=(self.starting_position - 1.0, 0.0, -pi / 12, 0.0),
+                high=(self.goal_position + 1.0, 0.0, pi / 12, 0.0),
                 size=(4,))
-                
+
         elif self.mode in ['test', 'eval']:
             self.state = self.np_random.uniform(
-                low=(self.starting_position, -0.05, -pi / 15, -0.05),
-                high=(self.starting_position, 0.05, pi / 15, 0.05),
+                low=(self.starting_position, 0.0, -pi / 15, 0.0),
+                high=(self.starting_position, 0.0, pi / 15, 0.0),
                 size=(4,))
 
         self.times_at_goal = 0
@@ -153,12 +148,25 @@ class CartPoleRegulatorEnv(CartPoleExtensionEnv):
 
     def in_goal_state(self):
         x = self.x(self.state[0])
-        return np.abs(x - self.goal_position) <= self.goal_x_margin
+        return self.theta_min <= self.state[2] <= self.theta_max and \
+            np.abs(x - self.goal_position) <= self.goal_x_margin
+
+    def is_successful(self, in_goal_state, failed):
+
+        if self.mode == 'train':
+            return self.times_at_goal >= self.goal_stable_duration
+
+        elif self.mode in ['test', 'eval']:
+
+            return not failed and \
+                in_goal_state and \
+                self.episode_step >= self.max_episode_steps - 1
 
     def has_failed(self, x, theta):
         return not self.x_min <= x <= self.x_max or \
             not self.theta_min <= theta <= self.theta_max or \
-            self.episode_step >= self.max_episode_steps - 1
+            (self.episode_step >= self.max_episode_steps - 1 and 
+             not self.in_goal_state())
 
     def obeservation(self):
         return self.state
