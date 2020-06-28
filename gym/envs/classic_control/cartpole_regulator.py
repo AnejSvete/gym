@@ -1,6 +1,5 @@
 import gym
 from gym import spaces
-from gym.utils import seeding
 from gym.envs.classic_control import rendering
 
 from gym.envs.classic_control.cartpole_extension import CartPoleExtensionEnv
@@ -9,15 +8,15 @@ import numpy as np
 from scipy.constants import g, pi
 
 
-class CartPoleAltEnv(CartPoleExtensionEnv):
+class CartPoleRegulatorEnv(CartPoleExtensionEnv):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
         'video.frames_per_second': 50
     }
 
-    def __init__(self, mode='train', de_solver='scipy',
+    def __init__(self, mode='train', de_solver='scipy', 
                  use_keyboard=False, seed=526245):
-        self.name = 'CartPole-v4'
+        self.name = 'CartPole-v5'
 
         self.setup_keyboard_listener(use_keyboard)
 
@@ -56,7 +55,7 @@ class CartPoleAltEnv(CartPoleExtensionEnv):
         self.screen_width_pixels, self.screen_height_pixels = 900, 600
         self.scale = self.screen_width_pixels / self.world_width
 
-        self.t_evals = None 
+        self.t_evals = None
 
         self.cart_width = 0.4
         self.cart_height = 0.25
@@ -85,26 +84,40 @@ class CartPoleAltEnv(CartPoleExtensionEnv):
         self.pole_bottom_y_pixels = self.cart_top_y_pixels
         self.pole_bottom_y = self.pole_bottom_y_pixels / self.scale
 
+        self.starting_position = -1
+        self.goal_position = 1
+
+        self.intersection_polygon = None
+
         self.viewer = None
         self.state = None
-
-        self.goal_position = 0.0
 
         self.episode_step = 0
         self.max_episode_steps = 500
 
-        self.goal_stable_duration = 500
-        
+        self.goal_stable_duration = 100
+        self.goal_x_margin = 0.25
+        self.goal_x_dot_margin = 0.5
+        self.goal_theta_margin = pi / 48
+        self.goal_theta_dot_margin = 0.5
+        self.times_at_goal = 0
+
     def reset(self):
 
-        self.state = self.np_random.uniform(
-            low=(-0.05, -0.05, -pi / 12, -0.05),
-            high=(0.05, 0.05, pi / 12, 0.05),
-            size=(4,))
-            
+        if self.mode == 'train':
+            self.state = self.np_random.uniform(
+                low=(self.starting_position - 0.25, -0.05, -pi / 6, -0.05),
+                high=(self.goal_position + 0.25, 0.05, pi / 6, 0.05),
+                size=(4,))
+                
+        elif self.mode in ['test', 'eval']:
+            self.state = self.np_random.uniform(
+                low=(self.starting_position, -0.05, -pi / 15, -0.05),
+                high=(self.starting_position, 0.05, pi / 15, 0.05),
+                size=(4,))
+
         self.times_at_goal = 0
         self.episode_step = 0
-        
         return self.obeservation()
 
     def x(self, s):
@@ -129,23 +142,28 @@ class CartPoleAltEnv(CartPoleExtensionEnv):
         return self.force_mag if action == 1 else -self.force_mag
 
     def reward(self, in_goal_state, failed):
-        return 0 if failed else 1
+        if in_goal_state:
+            return 0
+        elif failed:
+            return -0.5
+        else:
+            return -1 / (2 * self.max_episode_steps)
 
     def in_goal_state(self):
-        s, _, theta, _ = self.state
-        x = self.x(s)
-        return not self.has_failed(x, theta)
+        x = self.x(self.state[0])
+        return np.abs(x - self.goal_position) <= self.goal_x_margin
 
     def has_failed(self, x, theta):
         return not self.x_min <= x <= self.x_max or \
-            not self.theta_min <= theta <= self.theta_max 
+            not self.theta_min <= theta <= self.theta_max or \
+            self.episode_step >= self.max_episode_steps - 1
 
     def obeservation(self):
         return self.state
 
     def render(self, mode='human'):
 
-        x, x_dot, theta, theta_dot = self.state
+        x, _, theta, _ = self.state
 
         if self.viewer is None:
             self.viewer = rendering.Viewer(self.screen_width_pixels,
@@ -159,6 +177,79 @@ class CartPoleAltEnv(CartPoleExtensionEnv):
                 (self.screen_width_pixels, 0)])
             self.track.set_color(44/255, 160/255, 44/255)
             self.viewer.add_geom(self.track)
+
+            # start flag
+            flag_x = (self.starting_position - self.x_min) * self.scale
+            flag_bottom_y = self.y(self.starting_position) * self.scale
+            flag_top_y = flag_bottom_y + 128
+            flagpole = rendering.Line((flag_x, flag_bottom_y),
+                                      (flag_x, flag_top_y))
+            self.viewer.add_geom(flagpole)
+            flag = rendering.FilledPolygon([
+                (flag_x, flag_top_y),
+                (flag_x, flag_top_y - 24),
+                (flag_x + 42, flag_top_y - 12)])
+            flag.set_color(105/255, 183/255, 100/255)
+            self.viewer.add_geom(flag)
+
+            # finish flag
+            flag_x = (self.goal_position - self.x_min) * self.scale
+            flag_bottom_y = self.track_height_pixels
+            flag_top_y = flag_bottom_y + 128
+            flagpole = rendering.Line((flag_x, flag_bottom_y),
+                                      (flag_x, flag_top_y))
+            self.viewer.add_geom(flagpole)
+            flag = rendering.FilledPolygon([(flag_x, flag_top_y),
+                                            (flag_x, flag_top_y - 24),
+                                            (flag_x + 42, flag_top_y - 12)])
+            flag.set_color(255/255, 221/255, 113/255)
+            self.viewer.add_geom(flag)
+
+            # goal margin
+            stone_width, stone_height = 8, 8
+            stone_bottom_y = self.track_height_pixels
+            left_stone_x = (self.goal_position -
+                            self.goal_x_margin - self.x_min) * self.scale
+            right_stone_x = (self.goal_position +
+                             self.goal_x_margin - self.x_min) * self.scale
+            left_stone = rendering.FilledPolygon([
+                (left_stone_x, stone_bottom_y),
+                (left_stone_x + stone_width, stone_bottom_y),
+                (left_stone_x + stone_width / 2,
+                 stone_bottom_y + stone_height)])
+            right_stone = rendering.FilledPolygon([
+                (right_stone_x - stone_width, stone_bottom_y),
+                (right_stone_x, stone_bottom_y),
+                (right_stone_x - stone_width / 2,
+                 stone_bottom_y + stone_height)])
+            left_stone.set_color(237/255, 102/255, 93/255)
+            right_stone.set_color(237/255, 102/255, 93/255)
+            self.viewer.add_geom(left_stone)
+            self.viewer.add_geom(right_stone)
+
+            for ii in range(0, 10 + 1):
+                marker = rendering.FilledPolygon([
+                    (ii * pi / 2 * self.scale - stone_width / 4, 0),
+                    (ii * pi / 2 * self.scale - stone_width / 4,
+                     stone_height / 2),
+                    (ii * pi / 2 * self.scale + stone_width / 4,
+                     stone_height / 2),
+                    (ii * pi / 2 * self.scale + stone_width / 4, 0)])
+                marker.set_color(242/255, 108/255, 100/255)
+                self.viewer.add_geom(marker)
+
+            marker = rendering.FilledPolygon([
+                ((self.starting_position - self.x_min) * self.scale -
+                 stone_width / 4, 0),
+                ((self.starting_position - self.x_min) * self.scale -
+                 stone_width / 4, stone_height / 2),
+                ((self.starting_position - self.x_min) * self.scale +
+                 stone_width / 4,
+                 stone_height / 2),
+                ((self.starting_position - self.x_min) * self.scale +
+                 stone_width / 4, 0)])
+            marker.set_color(255/255, 193/255, 86/255)
+            self.viewer.add_geom(marker)
 
             # cart
             l, r, t, b = [-self.cart_width_pixels / 2,

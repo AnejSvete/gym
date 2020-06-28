@@ -44,17 +44,16 @@ class CartPoleExtensionEnv(gym.Env):
         self.goal_stable_duration = 10
 
     def setup_keyboard_listener(self, use_keyboard):
-        print(f'setting keyboard listener {use_keyboard}')
         
         if not use_keyboard:
             return
         
         def on_press(key):
-            print(f'key {key} pressed')
+            # print(f'key {key} pressed')
             pass
 
         def on_release(key):
-            print(f'key {key} released')
+            # print(f'key {key} released')
 
             try:
                 if key.char == 'a':

@@ -86,6 +86,13 @@ register(
 )
 
 register(
+    id='CartPole-v5',
+    entry_point='gym.envs.classic_control:CartPoleRegulatorEnv',
+    max_episode_steps=500,
+    reward_threshold=0.0,
+)
+
+register(
     id='MountainCar-v0',
     entry_point='gym.envs.classic_control:MountainCarEnv',
     max_episode_steps=200,
