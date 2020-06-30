@@ -89,15 +89,15 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.pole_bottom_y_pixels = self.cart_top_y_pixels
         self.pole_bottom_y = self.pole_bottom_y_pixels / self.scale
 
-        self.obstacle_location = self.x_min + pi
+        self.obstacle_location = -5
         self.obstacle_location_pixels = \
             (self.obstacle_location - self.x_min) * self.scale
         self.obstacle_width = 0.04
         self.obstacle_width_pixels = self.obstacle_width * self.scale
         self.set_obstacle_height(desired_angle=15, units='deg')
 
-        self.starting_position = self.obstacle_location - pi / 2
-        self.goal_position = self.starting_position + 3 / 2 * pi
+        self.starting_position = self.obstacle_location - 1
+        self.goal_position = self.starting_position + 2
 
         self.intersection_polygon = None
 
@@ -107,7 +107,8 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.episode_step = 0
         self.max_episode_steps = 500
 
-        self.goal_stable_duration = 10
+        self.training_stable_duration = 50
+        self.evaluation_stable_duration = 100
         self.goal_x_margin = 0.5
         self.times_at_goal = 0
 
@@ -121,13 +122,13 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
 
         if self.mode == 'train':
             self.state = self.np_random.uniform(
-                low=(self.starting_position - pi / 4, -0.05, -pi / 6, -0.05),
-                high=(self.goal_position + 2 * pi / 8, 0.05, pi / 6, 0.05),
+                low=(self.starting_position - 0.5, -0.05, -pi / 6, -0.05),
+                high=(self.goal_position + 0.5, 0.05, pi / 6, 0.05),
                 size=(4,))
         if self.mode == 'agressive_train':
             self.state = self.np_random.uniform(
-                low=(self.starting_position - pi / 4, -0.1, -pi / 3, -0.1),
-                high=(self.goal_position + pi / 2, 0.1, pi / 4, 0.1),
+                low=(self.starting_position - 0.5, -0.1, -pi / 3, -0.1),
+                high=(self.goal_position + 1.5, 0.1, pi / 3, 0.1),
                 size=(4,))
         elif self.mode in ['test', 'eval']:
             self.state = self.np_random.uniform(
@@ -220,13 +221,18 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
     def is_successful(self, in_goal_state, failed):
 
         if self.mode == 'train':
-            return self.times_at_goal >= self.goal_stable_duration
+            return self.times_at_goal >= self.training_stable_duration
 
         elif self.mode in ['test', 'eval']:
 
-            return not failed and \
-                in_goal_state and \
-                self.episode_step >= self.max_episode_steps - 1
+            return self.times_at_goal >= self.evaluation_stable_duration or \
+                (not failed and
+                 in_goal_state and
+                 self.episode_step >= self.max_episode_steps - 1)
+
+            # return not failed and \
+            #     in_goal_state and \
+            #     self.episode_step >= self.max_episode_steps - 1
 
     def has_failed(self, x, theta):
         return not self.x_min <= x <= self.x_max or \

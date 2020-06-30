@@ -86,8 +86,8 @@ class CartPoleRegulatorEnv(CartPoleExtensionEnv):
         self.pole_bottom_y_pixels = self.cart_top_y_pixels
         self.pole_bottom_y = self.pole_bottom_y_pixels / self.scale
 
-        self.starting_position = -1
-        self.goal_position = 1
+        self.starting_position = -2.0
+        self.goal_position = 0.0
 
         self.viewer = None
         self.state = None
@@ -95,7 +95,8 @@ class CartPoleRegulatorEnv(CartPoleExtensionEnv):
         self.episode_step = 0
         self.max_episode_steps = 500
 
-        self.goal_stable_duration = 10
+        self.training_stable_duration = 75
+        self.evaluation_stable_duration = 150
         self.goal_x_margin = 0.5
         self.times_at_goal = 0
 
@@ -103,14 +104,14 @@ class CartPoleRegulatorEnv(CartPoleExtensionEnv):
 
         if self.mode == 'train':
             self.state = self.np_random.uniform(
-                low=(self.starting_position - 1.0, 0.0, -pi / 12, 0.0),
-                high=(self.goal_position + 1.0, 0.0, pi / 12, 0.0),
+                low=(self.starting_position - 0.25, -0.05, -pi / 12, -0.05),
+                high=(self.goal_position + 0.5, 0.05, pi / 12, 0.05),
                 size=(4,))
 
         elif self.mode in ['test', 'eval']:
             self.state = self.np_random.uniform(
-                low=(self.starting_position, 0.0, -pi / 15, 0.0),
-                high=(self.starting_position, 0.0, pi / 15, 0.0),
+                low=(self.starting_position, -0.05, -pi / 15, -0.05),
+                high=(self.starting_position, 0.05, pi / 15, 0.05),
                 size=(4,))
 
         self.times_at_goal = 0
@@ -154,18 +155,23 @@ class CartPoleRegulatorEnv(CartPoleExtensionEnv):
     def is_successful(self, in_goal_state, failed):
 
         if self.mode == 'train':
-            return self.times_at_goal >= self.goal_stable_duration
+            return self.times_at_goal >= self.training_stable_duration
 
         elif self.mode in ['test', 'eval']:
 
-            return not failed and \
-                in_goal_state and \
-                self.episode_step >= self.max_episode_steps - 1
+            return self.times_at_goal >= self.evaluation_stable_duration or \
+                (not failed and
+                 in_goal_state and
+                 self.episode_step >= self.max_episode_steps - 1)
+
+            # return not failed and \
+            #     in_goal_state and \
+            #     self.episode_step >= self.max_episode_steps - 1
 
     def has_failed(self, x, theta):
         return not self.x_min <= x <= self.x_max or \
             not self.theta_min <= theta <= self.theta_max or \
-            (self.episode_step >= self.max_episode_steps - 1 and 
+            (self.episode_step >= self.max_episode_steps - 1 and
              not self.in_goal_state())
 
     def obeservation(self):
