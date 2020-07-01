@@ -17,8 +17,11 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
         'video.frames_per_second': 50
     }
 
-    def __init__(self, mode='train', de_solver='scipy', seed=371875):
+    def __init__(self, mode='train', de_solver='scipy', 
+                 use_keyboard=False, seed=526245):
         self.name = 'CartPole-v3'
+
+        self.setup_keyboard_listener(use_keyboard)
 
         self.world_width, self.world_height = 4 * pi, 2 * pi
 
@@ -67,11 +70,9 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
 
         self.cart_width = 0.4
         self.cart_height = 0.25
-        self.track_height = 0.2
 
         self.cart_width_pixels = self.cart_width * self.scale
         self.cart_height_pixels = self.cart_height * self.scale
-        self.track_height_pixels = self.track_height * self.scale
         self.wheels_radius = 0.3 * self.cart_height_pixels
 
         self.pole_width = 0.04
@@ -108,7 +109,6 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
         self.goal_theta_dot_margin = 1.0
         self.times_at_goal = 0
 
-        self.R, self.r, self.d = 5.0 / 2, 3.0 / 2, 5.0 / 2
 
     def reset(self):
 
@@ -183,44 +183,6 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
         y_right[w_right >= self.bottom +
                 self.bottom_width / 2 + self.slope_length] = 0.0
         return np.concatenate((y_left, y_right))
-
-    """
-    def x(self, s):
-        return (self.R - self.r) * np.cos(s) + self.d * np.cos((self.R - self.r) / self.r * s)
-
-    def x_dot(self, s):
-        return -np.sin(s)
-
-    def x_dot_dot(self, s):
-        return -np.cos(s)
-
-    def y(self, s):
-        return (self.R - self.r) * np.cos(s) - self.d * np.sin((self.R - self.r) / self.r * s) + self.initial_height
-
-    def y_dot(self, s):
-        return np.cos(s)
-        
-    def y_dot_dot(self, s):
-        return -np.sin(s)
-
-    def x(self, s):
-        return np.cos(s)
-
-    def x_dot(self, s):
-        return -np.sin(s)
-
-    def x_dot_dot(self, s):
-        return -np.cos(s)
-
-    def y(self, s):
-        return np.sin(s) + self.initial_height
-
-    def y_dot(self, s):
-        return np.cos(s)
-        
-    def y_dot_dot(self, s):
-        return -np.sin(s)
-    """
 
     def action_to_force(self, action):
         return (action - 1) * self.force_mag
@@ -311,11 +273,9 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
             # goal margin
             stone_width, stone_height = 16, 16
             left_stone_x = (self.x(self.min_goal) - self.x_min) * self.scale
-            left_stone_bottom_y = \
-                self.y(left_stone_x / self.scale) * self.scale
+            left_stone_bottom_y = self.y(self.min_goal) * self.scale
             right_stone_x = (self.x(self.max_goal) - self.x_min) * self.scale
-            right_stone_bottom_y = \
-                self.y(right_stone_x / self.scale) * self.scale
+            right_stone_bottom_y = self.y(self.max_goal) * self.scale
             left_stone = rendering.FilledPolygon([
                 (left_stone_x, left_stone_bottom_y),
                 (left_stone_x + stone_width, left_stone_bottom_y),

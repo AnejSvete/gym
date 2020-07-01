@@ -89,7 +89,7 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.pole_bottom_y_pixels = self.cart_top_y_pixels
         self.pole_bottom_y = self.pole_bottom_y_pixels / self.scale
 
-        self.obstacle_location = -5
+        self.obstacle_location = -4
         self.obstacle_location_pixels = \
             (self.obstacle_location - self.x_min) * self.scale
         self.obstacle_width = 0.04
@@ -97,7 +97,7 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.set_obstacle_height(desired_angle=15, units='deg')
 
         self.starting_position = self.obstacle_location - 1
-        self.goal_position = self.starting_position + 2
+        self.goal_position = self.starting_position + 3
 
         self.intersection_polygon = None
 
@@ -123,7 +123,7 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         if self.mode == 'train':
             self.state = self.np_random.uniform(
                 low=(self.starting_position - 0.5, -0.05, -pi / 6, -0.05),
-                high=(self.goal_position + 0.5, 0.05, pi / 6, 0.05),
+                high=(self.goal_position + 2.0, 0.05, pi / 6, 0.05),
                 size=(4,))
         if self.mode == 'agressive_train':
             self.state = self.np_random.uniform(
