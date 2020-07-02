@@ -85,8 +85,8 @@ class CartPoleRegulatorEnv(CartPoleExtensionEnv):
         self.pole_bottom_y_pixels = self.cart_top_y_pixels
         self.pole_bottom_y = self.pole_bottom_y_pixels / self.scale
 
-        self.starting_position = -1
-        self.goal_position = 1
+        self.starting_position = -1.25
+        self.goal_position = self.starting_position + 2
 
         self.viewer = None
         self.state = None
