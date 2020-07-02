@@ -100,8 +100,8 @@ class CartPoleAltEnv(CartPoleExtensionEnv):
     def reset(self):
 
         self.state = self.np_random.uniform(
-            low=(-0.05, -0.05, -pi / 12, -0.05),
-            high=(0.05, 0.05, pi / 12, 0.05),
+            low=(-0.05, -0.05, -pi / 60, -0.05),
+            high=(0.05, 0.05, pi / 60, 0.05),
             size=(4,))
             
         self.times_at_goal = 0

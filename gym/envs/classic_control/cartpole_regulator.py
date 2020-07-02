@@ -1,13 +1,12 @@
-import gym
-from gym import spaces
-from gym.envs.classic_control import rendering
-
-from gym.envs.classic_control.cartpole_extension import CartPoleExtensionEnv
-
 import numpy as np
 from scipy.constants import g, pi
 
 from shapely.geometry import LineString
+
+from gym import spaces
+from gym.envs.classic_control import rendering
+
+from gym.envs.classic_control.cartpole_extension import CartPoleExtensionEnv
 
 
 class CartPoleRegulatorEnv(CartPoleExtensionEnv):
@@ -17,7 +16,7 @@ class CartPoleRegulatorEnv(CartPoleExtensionEnv):
     }
 
     def __init__(self, mode='train', de_solver='scipy',
-                 use_keyboard=False, seed=526245):
+                 use_keyboard=False, seed=9865449):
         self.name = 'CartPole-v5'
 
         self.setup_keyboard_listener(use_keyboard)
@@ -86,8 +85,8 @@ class CartPoleRegulatorEnv(CartPoleExtensionEnv):
         self.pole_bottom_y_pixels = self.cart_top_y_pixels
         self.pole_bottom_y = self.pole_bottom_y_pixels / self.scale
 
-        self.starting_position = -2.0
-        self.goal_position = 0.0
+        self.starting_position = -1
+        self.goal_position = 1
 
         self.viewer = None
         self.state = None
@@ -104,14 +103,14 @@ class CartPoleRegulatorEnv(CartPoleExtensionEnv):
 
         if self.mode == 'train':
             self.state = self.np_random.uniform(
-                low=(self.starting_position - 0.25, -0.05, -pi / 12, -0.05),
-                high=(self.goal_position + 0.5, 0.05, pi / 12, 0.05),
+                low=(self.starting_position - 0.25, -0.05, -pi / 24, -0.05),
+                high=(self.goal_position + 0.5, 0.05, pi / 24, 0.05),
                 size=(4,))
 
         elif self.mode in ['test', 'eval']:
             self.state = self.np_random.uniform(
-                low=(self.starting_position, -0.05, -pi / 15, -0.05),
-                high=(self.starting_position, 0.05, pi / 15, 0.05),
+                low=(self.starting_position, 0.0, -pi / 60, 0.0),
+                high=(self.starting_position, 0.0, pi / 60, 0.0),
                 size=(4,))
 
         self.times_at_goal = 0
