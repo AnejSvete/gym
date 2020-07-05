@@ -229,14 +229,14 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
 
         elif self.mode in ['test', 'eval']:
 
-            return self.times_at_goal >= self.evaluation_stable_duration or \
-                (not failed and
-                 in_goal_state and
-                 self.episode_step >= self.max_episode_steps - 1)
+            # return self.times_at_goal >= self.evaluation_stable_duration or \
+            #     (not failed and
+            #      in_goal_state and
+            #      self.episode_step >= self.max_episode_steps - 1)
 
-            # return not failed and \
-            #     in_goal_state and \
-            #     self.episode_step >= self.max_episode_steps - 1
+            return not failed and \
+                in_goal_state and \
+                self.episode_step >= self.max_episode_steps - 1
 
     def has_failed(self, x, theta):
         return not self.x_min <= x <= self.x_max or \
