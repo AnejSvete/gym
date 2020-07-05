@@ -96,8 +96,8 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.obstacle_width_pixels = self.obstacle_width * self.scale
         self.set_obstacle_height(desired_angle=15, units='deg')
 
-        self.starting_position = self.obstacle_location - 1
-        self.goal_position = self.starting_position + 3
+        self.starting_position = self.obstacle_location - 2
+        self.goal_position = self.starting_position + 4
 
         self.intersection_polygon = None
 
@@ -107,9 +107,9 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.episode_step = 0
         self.max_episode_steps = 500
 
-        self.training_stable_duration = 50
-        self.evaluation_stable_duration = 100
-        self.goal_x_margin = 0.5
+        self.training_stable_duration = 150
+        self.evaluation_stable_duration = 150
+        self.goal_x_margin = 1.0
         self.times_at_goal = 0
 
     def reset(self):
@@ -122,9 +122,13 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
 
         if self.mode == 'train':
             self.state = self.np_random.uniform(
-                low=(self.starting_position - 0.5, -0.05, -pi / 6, -0.05),
-                high=(self.goal_position + 2.0, 0.05, pi / 6, 0.05),
+                low=(self.starting_position - 1.0, -0.05, -pi / 6, -0.05),
+                high=(self.goal_position + 4.0, 0.05, pi / 6, 0.05),
                 size=(4,))
+            # self.state = self.np_random.uniform(
+            #     low=(self.starting_position, -0.05, -pi / 6, -0.05),
+            #     high=(self.starting_position, 0.05, pi / 6, 0.05),
+            #     size=(4,))
         if self.mode == 'agressive_train':
             self.state = self.np_random.uniform(
                 low=(self.starting_position - 0.5, -0.1, -pi / 3, -0.1),
