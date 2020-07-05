@@ -122,8 +122,8 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
 
         if self.mode == 'train':
             self.state = self.np_random.uniform(
-                low=(self.starting_position - 1.0, -0.05, -pi / 6, -0.05),
-                high=(self.goal_position + 4.0, 0.05, pi / 6, 0.05),
+                low=(self.starting_position - 1.0, -0.05, -pi / 5, -0.05),
+                high=(self.goal_position + 4.0, 0.05, pi / 5, 0.05),
                 size=(4,))
             # self.state = self.np_random.uniform(
             #     low=(self.starting_position, -0.05, -pi / 6, -0.05),
@@ -136,8 +136,8 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
                 size=(4,))
         elif self.mode in ['test', 'eval']:
             self.state = self.np_random.uniform(
-                low=(self.starting_position, -0.05, -pi / 15, -0.05),
-                high=(self.starting_position, 0.05, pi / 15, 0.05),
+                low=(self.starting_position, 0.0, -pi / 60, 0.0),
+                high=(self.starting_position, 0.0, pi / 60, 0.0),
                 size=(4,))
         elif self.mode == 'trial':
             self.state = self.np_random.uniform(
