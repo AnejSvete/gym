@@ -57,7 +57,6 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
             np.finfo(np.float32).max, 
             np.finfo(np.float32).max])
 
-        # self.action_space = spaces.Discrete(3)
         self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(low, high, dtype=np.float64)
 
@@ -81,14 +80,13 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
 
         # Environment parameters:
         self.initial_height = self.world_height / 3
-        self.height = 1.5
-        # self.height = 0.75
-        self.steepness = 0.9
+        self.height = 1.0  # 1.0 / 1.0
+        self.steepness = 1.55  # 1.25 / 1.55
 
         self.slope_length = pi / self.steepness
 
-        self.bottom = self.x_min + self.slope_length + pi / 2
-        self.bottom_width = pi / 8
+        self.bottom = self.x_min + self.slope_length + 0.5
+        self.bottom_width = 0.1
 
         self.offset = pi / (2 * self.steepness) + self.bottom
 
@@ -103,31 +101,33 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
 
         self.min_goal, self.max_goal = \
             self.bottom + self.bottom_width / 2 + self.slope_length, self.x_max
-        self.goal_stable_duration = 10
-        self.goal_x_dot_margin = 1.0
-        self.goal_theta_margin = 0.05
-        self.goal_theta_dot_margin = 1.0
         self.times_at_goal = 0
 
 
     def reset(self):
 
-        # self.state = np.random.uniform(
-        #     low=(self.bottom - self.bottom_width / 2, -0.05, -pi / 15, -0.05),
-        #     high=(self.bottom + self.bottom_width / 2, 0.05, pi / 15, 0.05),
-        #     size=(4,))
-
         if self.mode == 'train':
+
+            area = np.random.choice(4, size=1, p=(1/6, 1/3, 1/6, 1/3))
+
+            if area == 0:
+                low = (self.bottom - self.slope_length, -0.1, -pi/8, -0.1)
+                high = (self.bottom, 0.1, pi/8, 0.1)
+            elif area == 1:
+                low = (self.bottom, -0.5, -pi/6, -0.5)
+                high = (self.bottom, 0.5, pi/6, 0.5)
+            elif area == 2:
+                low = (self.bottom, -0.1, -pi/8, -0.1)
+                high = (self.bottom + self.slope_length, 0.1, pi/8, 0.1)
+            elif area == 3:
+                low = (self.bottom + self.slope_length, -0.05, -pi/12, -0.05)
+                high = (self.x_max - 1.0, 0.05, pi/12, 0.05)
+
+            self.state = np.random.uniform(low=low, high=high, size=(4,))
+        elif self.mode in ['test', 'eval']:
             self.state = np.random.uniform(
-                low=(self.bottom - self.slope_length, -0.05, -pi / 12, -0.05),
-                high=(self.goal_position + pi / 2, 0.05, pi / 12, 0.05),
-                size=(4,))
-        else:
-            self.state = np.random.uniform(
-                low=(self.bottom - self.bottom_width / 2,
-                     -0.05, -pi / 15, -0.05),
-                high=(self.bottom + self.bottom_width / 2,
-                      0.05, pi / 15, 0.05),
+                low=(self.bottom - self.bottom_width / 2, 0.0, -pi / 60, 0.0),
+                high=(self.bottom + self.bottom_width / 2, 0.0, pi / 60, 0.0),
                 size=(4,))
         self.times_at_goal = 0
         self.episode_step = 0
@@ -185,7 +185,7 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
         return np.concatenate((y_left, y_right))
 
     def action_to_force(self, action):
-        return (action - 1) * self.force_mag
+        return self.force_mag if action == 1 else -self.force_mag
 
     def reward(self, in_goal_state, failed):
         if in_goal_state:
@@ -202,14 +202,9 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
 
     def is_successful(self, in_goal_state, failed):
 
-        if self.mode == 'train':
-            return self.times_at_goal >= self.goal_stable_duration
-
-        elif self.mode in ['test', 'eval']:
-
-            return not failed and \
-                in_goal_state and \
-                self.episode_step >= self.max_episode_steps - 1
+        return not failed and \
+            in_goal_state and \
+            self.episode_step >= self.max_episode_steps - 1
 
     def has_failed(self, x, theta):
         return not self.x_min <= x <= self.x_max or \
