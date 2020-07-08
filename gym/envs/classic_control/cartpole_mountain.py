@@ -14,11 +14,11 @@ from shapely.geometry import LineString
 class CartPoleMountainEnv(CartPoleExtensionEnv):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second': 50
+        'video.frames_per_second': 25
     }
 
-    def __init__(self, mode='train', de_solver='scipy', 
-                 use_keyboard=False, seed=526245):
+    def __init__(self, mode='train', de_solver='scipy',
+                 use_keyboard=False, seed=486948):
         self.name = 'CartPole-v3'
 
         self.setup_keyboard_listener(use_keyboard)
@@ -33,7 +33,7 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
         self.total_mass = (self.mass_pole + self.mass_cart)
         self.pole_length = 1.0
         self.force_mag = 10
-        self.tau = 0.02  # seconds between state updates
+        self.tau = 0.04  # seconds between state updates
 
         self.de_solver = de_solver
 
@@ -53,8 +53,8 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
             np.finfo(np.float32).max,
             self.theta_max * 2,
             np.finfo(np.float32).max,
-            self.world_height, 
-            np.finfo(np.float32).max, 
+            self.world_height,
+            np.finfo(np.float32).max,
             np.finfo(np.float32).max])
 
         self.action_space = spaces.Discrete(2)
@@ -86,7 +86,7 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
         self.slope_length = pi / self.steepness
 
         self.bottom = self.x_min + self.slope_length + 0.5
-        self.bottom_width = 0.1
+        self.bottom_width = 0.2
 
         self.offset = pi / (2 * self.steepness) + self.bottom
 
@@ -97,12 +97,11 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
         self.state = None
 
         self.episode_step = 0
-        self.max_episode_steps = 500
+        self.max_episode_steps = 250
 
         self.min_goal, self.max_goal = \
             self.bottom + self.bottom_width / 2 + self.slope_length, self.x_max
         self.times_at_goal = 0
-
 
     def reset(self):
 
@@ -145,12 +144,14 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
     def y(self, s):
         w = np.array(s)
         w_left, w_right = w[w <= self.bottom], w[w > self.bottom]
-        y_left = self.height * np.sin(
-            self.steepness * (np.clip(w_left, self.bottom - self.bottom_width / 2 - self.slope_length,
-                                      self.bottom - self.bottom_width / 2) - (self.offset - self.bottom_width / 2))) + self.initial_height
-        y_right = self.height * np.sin(
-            self.steepness * (np.clip(w_right, self.bottom + self.bottom_width / 2,
-                                      self.bottom + self.bottom_width / 2 + self.slope_length) - (self.offset + self.bottom_width / 2))) + self.initial_height
+        y_left = self.height * np.sin(self.steepness * (np.clip(
+            w_left, self.bottom - self.bottom_width / 2 - self.slope_length,
+            self.bottom - self.bottom_width / 2) -
+            (self.offset - self.bottom_width / 2))) + self.initial_height
+        y_right = self.height * np.sin(self.steepness * (np.clip(
+            w_right, self.bottom + self.bottom_width / 2, self.bottom + 
+            self.bottom_width / 2 + self.slope_length) - 
+            (self.offset + self.bottom_width / 2))) + self.initial_height
         return np.concatenate((y_left, y_right))
 
     def y_dot(self, s):
@@ -171,8 +172,7 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
     def y_dot_dot(self, s):
         w = np.array(s)
         w_left, w_right = w[w <= self.bottom], w[w > self.bottom]
-        y_left = -self.height * self.steepness**2 * \
-            np.sin(self.steepness * (w_left - (self.offset - self.bottom_width / 2)))
+        y_left = -self.height * self.steepness**2 * np.sin(self.steepness * (w_left - (self.offset - self.bottom_width / 2)))
         y_right = -self.height * self.steepness**2 * \
             np.sin(self.steepness * (w_right -
                                      (self.offset + self.bottom_width / 2)))
@@ -209,7 +209,7 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
     def has_failed(self, x, theta):
         return not self.x_min <= x <= self.x_max or \
             not self.theta_min <= theta <= self.theta_max or \
-            (self.episode_step >= self.max_episode_steps - 1 and 
+            (self.episode_step >= self.max_episode_steps - 1 and
              not self.in_goal_state())
 
     def obeservation(self):

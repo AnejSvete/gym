@@ -15,7 +15,7 @@ from shapely.geometry import LineString, Polygon
 class CartPoleObstacleEnv(CartPoleExtensionEnv):
     metadata = {
         'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second': 50
+        'video.frames_per_second': 25
     }
 
     def __init__(self, mode='train', de_solver='scipy', 
@@ -32,7 +32,7 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.total_mass = self.mass_pole + self.mass_cart
         self.pole_length = 1.0
         self.force_mag = 10.0
-        self.tau = 0.02  # seconds between state updates
+        self.tau = 0.04  # seconds between state updates
 
         self.de_solver = de_solver
         self.mode = mode
@@ -105,7 +105,7 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.state = None
 
         self.episode_step = 0
-        self.max_episode_steps = 500
+        self.max_episode_steps = 250
 
         self.training_stable_duration = 150
         self.evaluation_stable_duration = 150
@@ -113,36 +113,31 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.times_at_goal = 0
 
     def reset(self):
-        """
-        self.state = self.np_random.uniform(
-            low=(self.starting_position, -0.05, -pi / 15, -0.05),
-            high=(self.starting_position, 0.05, pi / 15, 0.05),
-            size=(4,))
-        """
 
         if self.mode == 'train':
             self.state = self.np_random.uniform(
                 low=(self.starting_position - 1.0, -0.05, -pi / 5, -0.05),
                 high=(self.goal_position + 4.0, 0.05, pi / 5, 0.05),
                 size=(4,))
-            # self.state = self.np_random.uniform(
-            #     low=(self.starting_position, -0.05, -pi / 6, -0.05),
-            #     high=(self.starting_position, 0.05, pi / 6, 0.05),
-            #     size=(4,))
-        if self.mode == 'agressive_train':
-            self.state = self.np_random.uniform(
-                low=(self.starting_position - 0.5, -0.1, -pi / 3, -0.1),
-                high=(self.goal_position + 1.5, 0.1, pi / 3, 0.1),
-                size=(4,))
+
+            # area = np.random.choice(3, size=1, p=(1/2, 1/6, 1/3))
+
+            # if area == 0:
+            #     low = (self.starting_position - 1.0, -0.1, -pi/8, -0.1)
+            #     high = (self.obstacle_location - 0.5, 0.1, pi/8, 0.1)
+            # elif area == 1:
+            #     low = (self.obstacle_location - 0.5, -0.25, -pi/6, -0.25)
+            #     high = (self.obstacle_location + 0.5, 0.25, pi/6, 0.25)
+            # elif area == 2:
+            #     low = (self.obstacle_location + 0.5, -0.1, -pi/8, -0.1)
+            #     high = (self.goal_position + 4.0, 0.1, pi/8, 0.1)
+
+            # self.state = self.np_random.uniform(low=low, high=high, size=(4,))
+
         elif self.mode in ['test', 'eval']:
             self.state = self.np_random.uniform(
                 low=(self.starting_position, 0.0, -pi / 60, 0.0),
                 high=(self.starting_position, 0.0, pi / 60, 0.0),
-                size=(4,))
-        elif self.mode == 'trial':
-            self.state = self.np_random.uniform(
-                low=(self.goal_position, -0.05, -pi / 15, -0.05),
-                high=(self.goal_position, 0.05, pi / 15, 0.05),
                 size=(4,))
 
         self.times_at_goal = 0
@@ -224,19 +219,9 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
 
     def is_successful(self, in_goal_state, failed):
 
-        if self.mode == 'train':
-            return self.times_at_goal >= self.training_stable_duration
-
-        elif self.mode in ['test', 'eval']:
-
-            # return self.times_at_goal >= self.evaluation_stable_duration or \
-            #     (not failed and
-            #      in_goal_state and
-            #      self.episode_step >= self.max_episode_steps - 1)
-
-            return not failed and \
-                in_goal_state and \
-                self.episode_step >= self.max_episode_steps - 1
+        return not failed and \
+            in_goal_state and \
+            self.episode_step >= self.max_episode_steps - 1
 
     def has_failed(self, x, theta):
         return not self.x_min <= x <= self.x_max or \
