@@ -96,7 +96,7 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.obstacle_width_pixels = self.obstacle_width * self.scale
         self.set_obstacle_height(desired_angle=15, units='deg')
 
-        self.starting_position = self.obstacle_location - 2
+        self.starting_position = self.obstacle_location - 1
         self.goal_position = self.starting_position + 4
 
         self.intersection_polygon = None
@@ -107,32 +107,31 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.episode_step = 0
         self.max_episode_steps = 250
 
-        self.training_stable_duration = 150
-        self.evaluation_stable_duration = 150
         self.goal_x_margin = 1.0
         self.times_at_goal = 0
+        self.min_goal, self.max_goal = self.obstacle_location + 1.0, self.x_max
 
     def reset(self):
 
         if self.mode == 'train':
-            self.state = self.np_random.uniform(
-                low=(self.starting_position - 1.0, -0.05, -pi / 5, -0.05),
-                high=(self.goal_position + 4.0, 0.05, pi / 5, 0.05),
-                size=(4,))
+            # self.state = self.np_random.uniform(
+            #     low=(self.starting_position - 1.0, -0.05, -pi / 5, -0.05),
+            #     high=(self.goal_position + 4.0, 0.05, pi / 5, 0.05),
+            #     size=(4,))
 
-            # area = np.random.choice(3, size=1, p=(1/2, 1/6, 1/3))
+            area = np.random.choice(3, size=1, p=(1/2, 1/6, 1/3))
 
-            # if area == 0:
-            #     low = (self.starting_position - 1.0, -0.1, -pi/8, -0.1)
-            #     high = (self.obstacle_location - 0.5, 0.1, pi/8, 0.1)
-            # elif area == 1:
-            #     low = (self.obstacle_location - 0.5, -0.25, -pi/6, -0.25)
-            #     high = (self.obstacle_location + 0.5, 0.25, pi/6, 0.25)
-            # elif area == 2:
-            #     low = (self.obstacle_location + 0.5, -0.1, -pi/8, -0.1)
-            #     high = (self.goal_position + 4.0, 0.1, pi/8, 0.1)
+            if area == 0:
+                low = (self.starting_position - 1.0, -0.1, -pi/6, -0.1)
+                high = (self.obstacle_location - 0.5, 0.1, pi/6, 0.1)
+            elif area == 1:
+                low = (self.obstacle_location - 0.5, -0.25, -pi/4, -0.25)
+                high = (self.obstacle_location + 0.5, 0.25, pi/4, 0.25)
+            elif area == 2:
+                low = (self.obstacle_location + 0.5, -0.1, -pi/8, -0.1)
+                high = (self.max_goal - 1.0, 0.1, pi/8, 0.1)
 
-            # self.state = self.np_random.uniform(low=low, high=high, size=(4,))
+            self.state = self.np_random.uniform(low=low, high=high, size=(4,))
 
         elif self.mode in ['test', 'eval']:
             self.state = self.np_random.uniform(
@@ -215,7 +214,7 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
     def in_goal_state(self):
         x = self.x(self.state[0])
         return self.theta_min <= self.state[2] <= self.theta_max and \
-            np.abs(x - self.goal_position) <= self.goal_x_margin
+            self.min_goal <= x <= self.max_goal
 
     def is_successful(self, in_goal_state, failed):
 
@@ -305,10 +304,8 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
             # goal margin
             stone_width, stone_height = 8, 8
             stone_bottom_y = self.track_height_pixels
-            left_stone_x = (self.goal_position -
-                            self.goal_x_margin - self.x_min) * self.scale
-            right_stone_x = (self.goal_position +
-                             self.goal_x_margin - self.x_min) * self.scale
+            left_stone_x = (self.min_goal - self.x_min) * self.scale
+            right_stone_x = (self.max_goal - self.x_min) * self.scale
             left_stone = rendering.FilledPolygon([
                 (left_stone_x, stone_bottom_y),
                 (left_stone_x + stone_width, stone_bottom_y),
