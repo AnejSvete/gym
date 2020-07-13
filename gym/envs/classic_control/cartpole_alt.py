@@ -31,6 +31,7 @@ class CartPoleAltEnv(CartPoleExtensionEnv):
         self.total_mass = self.mass_pole + self.mass_cart
         self.pole_length = 1.0
         self.force_mag = 10.0
+        self.outside_force = 75.0
         self.tau = 0.02  # seconds between state updates
 
         self.de_solver = de_solver

@@ -98,9 +98,9 @@ class CartPoleExtensionEnv(gym.Env):
         elif cmd == 'stop_pole':
             self.state = np.array([s, s_dot, theta, 0])
         elif cmd == 'push_pole_right':
-            self.state = np.array([s, s_dot, theta, theta_dot + 0.5])
+            self.state = np.array([s, s_dot, theta, theta_dot + 1.0])
         elif cmd == 'push_pole_left':
-            self.state = np.array([s, s_dot, theta, theta_dot - 0.5])
+            self.state = np.array([s, s_dot, theta, theta_dot - 1.0])
 
     def x(self, s):
         raise NotImplementedError
@@ -198,7 +198,7 @@ class CartPoleExtensionEnv(gym.Env):
         s, s_dot, theta, theta_dot = self.state
 
         if action in [-1, -2]:
-            force = 7.5 * self.force_mag if action == -1 else -7.5 * self.force_mag
+            force = self.outside_force if action == -1 else -self.outside_force
         else:
             force = self.action_to_force(action)
 

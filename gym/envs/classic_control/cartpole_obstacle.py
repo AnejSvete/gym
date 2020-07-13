@@ -30,8 +30,9 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.mass_cart = 1.0
         self.mass_pole = 0.1
         self.total_mass = self.mass_pole + self.mass_cart
-        self.pole_length = 1.0
+        self.pole_length = 0.5
         self.force_mag = 10.0
+        self.outside_force = 40.0
         self.tau = 0.04  # seconds between state updates
 
         self.de_solver = de_solver
