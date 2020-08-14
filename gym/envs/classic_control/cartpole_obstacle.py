@@ -97,8 +97,8 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.obstacle_width_pixels = self.obstacle_width * self.scale
         self.set_obstacle_height(desired_angle=15, units='deg')
 
-        self.starting_position = self.obstacle_location - 1
-        self.goal_position = self.starting_position + 4
+        self.starting_position = self.obstacle_location - 3
+        self.goal_position = self.starting_position + 6
 
         self.intersection_polygon = None
 
@@ -290,17 +290,17 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
             self.viewer.add_geom(flag)
 
             # finish flag
-            flag_x = (self.goal_position - self.x_min) * self.scale
-            flag_bottom_y = self.track_height_pixels
-            flag_top_y = flag_bottom_y + 128
-            flagpole = rendering.Line((flag_x, flag_bottom_y),
-                                      (flag_x, flag_top_y))
-            self.viewer.add_geom(flagpole)
-            flag = rendering.FilledPolygon([(flag_x, flag_top_y),
-                                            (flag_x, flag_top_y - 24),
-                                            (flag_x + 42, flag_top_y - 12)])
-            flag.set_color(255/255, 221/255, 113/255)
-            self.viewer.add_geom(flag)
+            # flag_x = (self.goal_position - self.x_min) * self.scale
+            # flag_bottom_y = self.track_height_pixels
+            # flag_top_y = flag_bottom_y + 128
+            # flagpole = rendering.Line((flag_x, flag_bottom_y),
+            #                           (flag_x, flag_top_y))
+            # self.viewer.add_geom(flagpole)
+            # flag = rendering.FilledPolygon([(flag_x, flag_top_y),
+            #                                 (flag_x, flag_top_y - 24),
+            #                                 (flag_x + 42, flag_top_y - 12)])
+            # flag.set_color(255/255, 221/255, 113/255)
+            # self.viewer.add_geom(flag)
 
             # goal margin
             stone_width, stone_height = 8, 8
