@@ -81,13 +81,13 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
 
         # Environment parameters:
         self.initial_height = self.world_height / 3
-        self.height = 1.0  # 1.0 / 1.0
-        self.steepness = 1.55  # 1.25 / 1.55
+        self.height = 1.0
+        self.steepness = 1.55
 
         self.slope_length = pi / self.steepness
 
         self.bottom = self.x_min + self.slope_length + 0.5
-        self.bottom_width = 0.2
+        self.bottom_width = 0.1
 
         self.offset = pi / (2 * self.steepness) + self.bottom
 
