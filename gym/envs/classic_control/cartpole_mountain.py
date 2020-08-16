@@ -92,7 +92,6 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
         self.offset = pi / (2 * self.steepness) + self.bottom
 
         self.starting_position = self.bottom
-        self.goal_position = self.starting_position + 3 / 2 * pi
 
         self.viewer = None
         self.state = None
@@ -251,20 +250,6 @@ class CartPoleMountainEnv(CartPoleExtensionEnv):
                 (flag_x + 50, flag_top_y - 15)])
             flag.set_color(105/255, 183/255, 100/255)
             self.viewer.add_geom(flag)
-
-            # goal flag
-            # flag_x = (self.x(self.goal_position) - self.x_min) * self.scale
-            # flag_bottom_y = self.y(self.goal_position) * self.scale
-            # flag_top_y = flag_bottom_y + 100.0
-            # flagpole = rendering.Line((flag_x, flag_bottom_y),
-            #                           (flag_x, flag_top_y))
-            # self.viewer.add_geom(flagpole)
-            # flag = rendering.FilledPolygon([
-            #     (flag_x, flag_top_y),
-            #     (flag_x, flag_top_y - 25),
-            #     (flag_x + 50, flag_top_y - 15)])
-            # flag.set_color(255/255, 221/255, 113/255)
-            # self.viewer.add_geom(flag)
 
             # goal margin
             stone_width, stone_height = 16, 16

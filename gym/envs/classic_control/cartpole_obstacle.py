@@ -90,14 +90,14 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
         self.pole_bottom_y_pixels = self.cart_top_y_pixels
         self.pole_bottom_y = self.pole_bottom_y_pixels / self.scale
 
-        self.obstacle_location = -4
+        self.obstacle_location = -3
         self.obstacle_location_pixels = \
             (self.obstacle_location - self.x_min) * self.scale
         self.obstacle_width = 0.04
         self.obstacle_width_pixels = self.obstacle_width * self.scale
         self.set_obstacle_height(desired_angle=15, units='deg')
 
-        self.starting_position = self.obstacle_location - 3
+        self.starting_position = self.obstacle_location - 2
         self.goal_position = self.starting_position + 6
 
         self.intersection_polygon = None
@@ -115,10 +115,6 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
     def reset(self):
 
         if self.mode == 'train':
-            # self.state = self.np_random.uniform(
-            #     low=(self.starting_position - 1.0, -0.05, -pi / 5, -0.05),
-            #     high=(self.goal_position + 4.0, 0.05, pi / 5, 0.05),
-            #     size=(4,))
 
             area = np.random.choice(3, size=1, p=(1/2, 1/6, 1/3))
 
@@ -288,19 +284,6 @@ class CartPoleObstacleEnv(CartPoleExtensionEnv):
                 (flag_x + 42, flag_top_y - 12)])
             flag.set_color(105/255, 183/255, 100/255)
             self.viewer.add_geom(flag)
-
-            # finish flag
-            # flag_x = (self.goal_position - self.x_min) * self.scale
-            # flag_bottom_y = self.track_height_pixels
-            # flag_top_y = flag_bottom_y + 128
-            # flagpole = rendering.Line((flag_x, flag_bottom_y),
-            #                           (flag_x, flag_top_y))
-            # self.viewer.add_geom(flagpole)
-            # flag = rendering.FilledPolygon([(flag_x, flag_top_y),
-            #                                 (flag_x, flag_top_y - 24),
-            #                                 (flag_x + 42, flag_top_y - 12)])
-            # flag.set_color(255/255, 221/255, 113/255)
-            # self.viewer.add_geom(flag)
 
             # goal margin
             stone_width, stone_height = 8, 8
